@@ -1,0 +1,35 @@
+[gd_scene load_steps=4 format=3 uid="uid://u2aftfk4jscx"]
+
+[ext_resource type="Script" uid="uid://co068i3tps14" path="res://progress_bar.gd" id="1_fqvp7"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xe3if"]
+bg_color = Color(0.08235294, 0.08235294, 0.08235294, 0.59607846)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_etua1"]
+bg_color = Color(1.1094138e-05, 0.64673, 0.13269636, 1)
+
+[node name="PowerMeter" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ProgressBar" type="ProgressBar" parent="." node_paths=PackedStringArray("progressBar")]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 371.0
+offset_top = -43.0
+offset_right = -381.0
+offset_bottom = -3.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/background = SubResource("StyleBoxFlat_xe3if")
+theme_override_styles/fill = SubResource("StyleBoxFlat_etua1")
+show_percentage = false
+script = ExtResource("1_fqvp7")
+progressBar = NodePath(".")

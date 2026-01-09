@@ -1,0 +1,56 @@
+[gd_scene load_steps=8 format=3 uid="uid://cdghvynsj8vwm"]
+
+[ext_resource type="PackedScene" uid="uid://u2aftfk4jscx" path="res://power_meter.tscn" id="1_noarx"]
+[ext_resource type="PackedScene" uid="uid://ctonnkhe8q38j" path="res://golf_ball.tscn" id="2_a0tk4"]
+[ext_resource type="Script" uid="uid://qjo20cg20csh" path="res://camera_3d.gd" id="3_a0tk4"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_a0tk4"]
+friction = 2.0
+rough = true
+bounce = 0.3
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_r3fl7"]
+size = Vector3(100, 1, 100)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jka67"]
+albedo_color = Color(0.32960784, 0.6051109, 1.92523e-07, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_i5arm"]
+material = SubResource("StandardMaterial3D_jka67")
+size = Vector3(100, 1, 100)
+
+[node name="Node3D" type="Node3D"]
+
+[node name="PowerMeter" parent="." instance=ExtResource("1_noarx")]
+
+[node name="GolfBall" parent="." instance=ExtResource("2_a0tk4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3279471, 0)
+
+[node name="RigidBody3D" parent="GolfBall" index="0" node_paths=PackedStringArray("powerMeterUI", "floorNode")]
+linear_damp_mode = 1
+linear_damp = 1.5
+angular_damp_mode = 1
+angular_damp = 2.5
+powerMeterUI = NodePath("../../PowerMeter/ProgressBar")
+floorNode = NodePath("../../Floor/StaticBody3D")
+
+[node name="Camera3D" type="Camera3D" parent="." node_paths=PackedStringArray("followTarget")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5283225, 2.6659837)
+script = ExtResource("3_a0tk4")
+followTarget = NodePath("../GolfBall/RigidBody3D")
+maxHeight = 8.0
+
+[node name="Floor" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5.306282, 0)
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Floor"]
+physics_material_override = SubResource("PhysicsMaterial_a0tk4")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor/StaticBody3D"]
+shape = SubResource("BoxShape3D_r3fl7")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Floor"]
+mesh = SubResource("BoxMesh_i5arm")
+
+[editable path="PowerMeter"]
+[editable path="GolfBall"]

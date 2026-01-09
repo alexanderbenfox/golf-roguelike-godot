@@ -1,0 +1,28 @@
+[gd_scene load_steps=6 format=3 uid="uid://ctonnkhe8q38j"]
+
+[ext_resource type="Script" uid="uid://unnpdl6vujf6" path="res://golf_ball.gd" id="1_0wkuo"]
+[ext_resource type="Material" uid="uid://ba8jiqaa401wp" path="res://materials/golf_ball.tres" id="2_g0ryd"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_r3fl7"]
+bounce = 0.6
+
+[sub_resource type="SphereMesh" id="SphereMesh_jka67"]
+material = ExtResource("2_g0ryd")
+radius = 0.2
+height = 0.4
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_i5arm"]
+radius = 0.2
+
+[node name="GolfBall" type="Node3D"]
+
+[node name="RigidBody3D" type="RigidBody3D" parent="."]
+mass = 0.045
+physics_material_override = SubResource("PhysicsMaterial_r3fl7")
+script = ExtResource("1_0wkuo")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="RigidBody3D"]
+mesh = SubResource("SphereMesh_jka67")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RigidBody3D"]
+shape = SubResource("SphereShape3D_i5arm")
