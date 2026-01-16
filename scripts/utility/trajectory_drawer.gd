@@ -61,101 +61,34 @@ func draw_arrow(start_pos: Vector3, direction: Vector3, power: float, max_power:
 	line_mesh.surface_add_vertex(end_point - direction * arrow_size - perpendicular * arrow_size * 0.5)
 	line_mesh.surface_end()
 	
-func draw_curved_trajectory(
-	start_pos: Vector3,
-	impulse: Vector3,
-	ball_mass: float,
-	ball_radius: float,
-	linear_damp: float,
-	angular_damp: float,
-	ball_friction: float,
-	ground_friction: float,
-	ball_bounce: float,
-	ground_bounce: float,
-	gravity_scale: float = 1.0,
-	ground_height: float = 0.0
-):
+func draw_trajectory(params: PhysicsSimulator.PhysicsParams, impulse: Vector3):
 	line_mesh.clear_surfaces()
 	
 	if impulse == Vector3.ZERO:
 		return
 	
-	# Convert impulse to initial velocity (impulse = mass * velocity)
-	var initial_velocity = impulse / ball_mass
+	# Convert impulse to velocity
+	var initial_velocity = impulse / params.mass
 	
-	# Get physics gravity from project settings
-	var gravity = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
-	var gravity_vector = Vector3(0, -gravity * gravity_scale, 0)
+	# Update color based on impulse strength
+	update_color_from_impulse(impulse.length())
 	
-	var time_step = 0.1  # Smaller steps for smoother curve
-	var max_time = 50.0  # Maximum simulation time
-	var num_points = int(max_time / time_step)
+	# Get trajectory positions from shared simulator
+	var positions = PhysicsSimulator.simulate_trajectory(
+		initial_velocity,
+		params,
+		Vector3.ZERO,  # Start at origin (trajectory is positioned at ball)
+		0.05,  # time_step
+		10.0,  # max_time
+		0.1    # stop_threshold
+	)
 	
-	line_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
-	
-	var current_pos = start_pos
-	var current_velocity = initial_velocity
-	var is_rolling = false
-	var stop_threshold = 0.1
-	
-	for i in range(num_points):
-		line_mesh.surface_add_vertex(current_pos)
-		
-		# Apply gravity
-		current_velocity += gravity_vector * time_step
-		# apply linear damping (air resistance)
-		var damping_factor = 1.0 / (1.0 + linear_damp * time_step)
-		current_velocity *= damping_factor
-		
-		# check if ball would be on the ground
-		if current_pos.y <= ground_height + ball_radius:
-			is_rolling = true
-			current_pos.y = ground_height + ball_radius
-			
-			# Ball hit ground - apply bounce
-			if current_velocity.y < 0:
-				# Combined bounce coefficient
-				var combined_bounce = ball_bounce * ground_bounce
-				current_velocity.y = -current_velocity.y * combined_bounce
-				
-				# If bounce is very small, start rolling
-				if abs(current_velocity.y) < 0.5:
-					current_velocity.y = 0
-		
-		# Apply rolling friction when on ground
-		if is_rolling and current_pos.y <= ground_height + ball_radius + 0.01:
-			# Combined friction (simplified)
-			var combined_friction = ball_friction * ground_friction
-			
-			# Rolling resistance - slows horizontal movement
-			var horizontal_velocity = Vector3(current_velocity.x, 0, current_velocity.z)
-			var friction_force = -horizontal_velocity.normalized() * combined_friction * gravity * time_step
-			
-			# Only apply if we're moving
-			if horizontal_velocity.length() > 0.01:
-				var new_horizontal = horizontal_velocity + friction_force
-				
-				# Don't reverse direction
-				if new_horizontal.dot(horizontal_velocity) > 0:
-					current_velocity.x = new_horizontal.x
-					current_velocity.z = new_horizontal.z
-				else:
-					current_velocity.x = 0
-					current_velocity.z = 0
-		
-		# Update position
-		current_pos += current_velocity * time_step
-		
-		# Stop if velocity is very low
-		if current_velocity.length() < stop_threshold:
-			line_mesh.surface_add_vertex(current_pos)
-			break
-		
-		# Stop if trajectory goes too far
-		if current_pos.length() > 200.0:
-			break
-	
-	line_mesh.surface_end()
+	# Draw the line
+	if positions.size() > 1:
+		line_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+		for pos in positions:
+			line_mesh.surface_add_vertex(pos)
+		line_mesh.surface_end()
 	
 func draw_curved_trajectory_with_bounce(start_pos: Vector3, impulse: Vector3, ball_mass: float, bounce: float = 0.5, gravity_scale: float = 1.0, ground_height: float = 0.0):
 	line_mesh.clear_surfaces()
@@ -216,3 +149,13 @@ func update_color(power: float, max_power: float):
 	elif power > max_power * 0.33:
 		color = Color(1, 1, 0)  # Yellow for medium
 	material.albedo_color = color
+	
+func update_color_from_impulse(impulse_magnitude: float):
+	var normalized = clamp(impulse_magnitude / 20.0, 0.0, 1.0)
+	
+	if normalized < 0.33:
+		material.albedo_color = Color(0, 1, 0, 0.8)  # Green
+	elif normalized < 0.66:
+		material.albedo_color = Color(1, 1, 0, 0.8)  # Yellow
+	else:
+		material.albedo_color = Color(1, 0, 0, 0.8)  # Red
