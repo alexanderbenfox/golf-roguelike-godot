@@ -1,8 +1,11 @@
-[gd_scene load_steps=8 format=3 uid="uid://cdghvynsj8vwm"]
+[gd_scene load_steps=11 format=3 uid="uid://cdghvynsj8vwm"]
 
+[ext_resource type="Script" uid="uid://dhymcyyachjoi" path="res://scripts/main.gd" id="1_i5arm"]
 [ext_resource type="PackedScene" uid="uid://u2aftfk4jscx" path="res://power_meter.tscn" id="1_noarx"]
 [ext_resource type="PackedScene" uid="uid://ctonnkhe8q38j" path="res://golf_ball.tscn" id="2_a0tk4"]
 [ext_resource type="Script" uid="uid://qjo20cg20csh" path="res://camera_3d.gd" id="3_a0tk4"]
+[ext_resource type="PackedScene" uid="uid://vbfwa6j6ip78" path="res://scenes/ui/score_ui.tscn" id="3_i5arm"]
+[ext_resource type="Script" uid="uid://bvnb01yj2vj80" path="res://scripts/managers/scoring_manager.gd" id="4_r3fl7"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_a0tk4"]
 friction = 2.0
@@ -19,9 +22,13 @@ albedo_color = Color(0.32960784, 0.6051109, 1.92523e-07, 1)
 material = SubResource("StandardMaterial3D_jka67")
 size = Vector3(100, 1, 100)
 
-[node name="Node3D" type="Node3D"]
+[node name="Main" type="Node3D"]
+script = ExtResource("1_i5arm")
 
-[node name="PowerMeter" parent="." instance=ExtResource("1_noarx")]
+[node name="UICanvas" parent="." instance=ExtResource("1_noarx")]
+
+[node name="ScoreUI" parent="UICanvas" instance=ExtResource("3_i5arm")]
+layout_mode = 0
 
 [node name="GolfBall" parent="." instance=ExtResource("2_a0tk4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3279471, 0)
@@ -31,7 +38,7 @@ linear_damp_mode = 1
 linear_damp = 1.5
 angular_damp_mode = 1
 angular_damp = 2.5
-powerMeterUI = NodePath("../../PowerMeter/ProgressBar")
+powerMeterUI = NodePath("../../UICanvas/ProgressBar")
 floorNode = NodePath("../../Floor/StaticBody3D")
 
 [node name="Camera3D" type="Camera3D" parent="." node_paths=PackedStringArray("followTarget")]
@@ -52,5 +59,10 @@ shape = SubResource("BoxShape3D_r3fl7")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Floor"]
 mesh = SubResource("BoxMesh_i5arm")
 
-[editable path="PowerMeter"]
+[node name="ScoringManager" type="Node" parent="."]
+script = ExtResource("4_r3fl7")
+metadata/_custom_type_script = "uid://bvnb01yj2vj80"
+
+[editable path="UICanvas"]
+[editable path="UICanvas/ScoreUI"]
 [editable path="GolfBall"]

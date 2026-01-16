@@ -1,0 +1,40 @@
+[gd_scene load_steps=2 format=3 uid="uid://vbfwa6j6ip78"]
+
+[ext_resource type="Script" uid="uid://d4j8xyykolwab" path="res://scripts/ui/score_ui.gd" id="1_ei5xf"]
+
+[node name="ScoreUI" type="Control" node_paths=PackedStringArray("stroke_label", "par_label", "score_label")]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 1149.0
+offset_bottom = 623.0
+script = ExtResource("1_ei5xf")
+stroke_label = NodePath("VBoxContainer/StrokeLabel")
+par_label = NodePath("VBoxContainer/ParLabel")
+score_label = NodePath("VBoxContainer/ScoreLabel")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -441.0
+offset_bottom = 234.0
+grow_horizontal = 0
+
+[node name="StrokeLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "Test"
+
+[node name="ParLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "Test"
+
+[node name="ScoreLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "test"

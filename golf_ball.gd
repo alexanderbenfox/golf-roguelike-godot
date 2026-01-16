@@ -6,7 +6,6 @@ var aim_direction = Vector3.ZERO
 var aim_power = 0.0
 
 var stop_velocity_threshold = 0.3
-var stop_angular_threshold = 0.5
 
 # Simulated physics state
 var is_simulating = false
@@ -25,12 +24,16 @@ var sim_params: PhysicsSimulator.PhysicsParams
 
 @onready var trajectoryDrawer: TrajectoryDrawer
 
+var scoring_manager: ScoringManager
+
 func _ready():
 	contact_monitor = true
 	max_contacts_reported = 4
 	
 	trajectoryDrawer = TrajectoryDrawer.new()
 	add_child(trajectoryDrawer)
+	
+	scoring_manager = get_node("/root/Main/ScoringManager")
 	
 	#initialize physics parameters (used by trajectory line and simulating)
 	setup_physics_params()
@@ -135,9 +138,11 @@ func hit_ball():
 		
 		sim_state = PhysicsSimulator.SimulationState.new(global_position, initial_velocity)
 		is_simulating = true
+		freeze = true # Freeze RigidBody physics
 		
-		# Freeze RigidBody physics
-		freeze = true
+		# add stroke to counter
+		if scoring_manager:
+			scoring_manager.add_stroke()
 	
 	is_aiming = false
 	aim_power = 0.0
