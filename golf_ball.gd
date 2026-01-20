@@ -29,6 +29,9 @@ var scoring_manager: ScoringManager
 func _ready():
 	contact_monitor = true
 	max_contacts_reported = 4
+
+	# "ball" group is used for cup collision
+	add_to_group("ball")
 	
 	trajectoryDrawer = TrajectoryDrawer.new()
 	add_child(trajectoryDrawer)

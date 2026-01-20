@@ -1,11 +1,13 @@
-[gd_scene load_steps=11 format=3 uid="uid://cdghvynsj8vwm"]
+[gd_scene load_steps=13 format=3 uid="uid://cdghvynsj8vwm"]
 
 [ext_resource type="Script" uid="uid://dhymcyyachjoi" path="res://scripts/main.gd" id="1_i5arm"]
 [ext_resource type="PackedScene" uid="uid://u2aftfk4jscx" path="res://power_meter.tscn" id="1_noarx"]
 [ext_resource type="PackedScene" uid="uid://ctonnkhe8q38j" path="res://golf_ball.tscn" id="2_a0tk4"]
 [ext_resource type="Script" uid="uid://qjo20cg20csh" path="res://camera_3d.gd" id="3_a0tk4"]
 [ext_resource type="PackedScene" uid="uid://vbfwa6j6ip78" path="res://scenes/ui/score_ui.tscn" id="3_i5arm"]
+[ext_resource type="PackedScene" uid="uid://bkq6fyiy48t8k" path="res://scenes/ui/hole_complete_ui.tscn" id="4_jsk3o"]
 [ext_resource type="Script" uid="uid://bvnb01yj2vj80" path="res://scripts/managers/scoring_manager.gd" id="4_r3fl7"]
+[ext_resource type="Script" uid="uid://dq7j4va62md3m" path="res://scripts/managers/course_manager.gd" id="8_4arys"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_a0tk4"]
 friction = 2.0
@@ -30,6 +32,9 @@ script = ExtResource("1_i5arm")
 [node name="ScoreUI" parent="UICanvas" instance=ExtResource("3_i5arm")]
 layout_mode = 0
 
+[node name="HoleCompleteUI" parent="UICanvas" instance=ExtResource("4_jsk3o")]
+layout_mode = 0
+
 [node name="GolfBall" parent="." instance=ExtResource("2_a0tk4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3279471, 0)
 
@@ -48,7 +53,6 @@ followTarget = NodePath("../GolfBall/RigidBody3D")
 maxHeight = 8.0
 
 [node name="Floor" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5.306282, 0)
 
 [node name="StaticBody3D" type="StaticBody3D" parent="Floor"]
 physics_material_override = SubResource("PhysicsMaterial_a0tk4")
@@ -62,6 +66,10 @@ mesh = SubResource("BoxMesh_i5arm")
 [node name="ScoringManager" type="Node" parent="."]
 script = ExtResource("4_r3fl7")
 metadata/_custom_type_script = "uid://bvnb01yj2vj80"
+
+[node name="CourseManager" type="Node" parent="."]
+script = ExtResource("8_4arys")
+metadata/_custom_type_script = "uid://dq7j4va62md3m"
 
 [editable path="UICanvas"]
 [editable path="UICanvas/ScoreUI"]
