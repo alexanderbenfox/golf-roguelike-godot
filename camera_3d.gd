@@ -14,7 +14,6 @@ extends Camera3D
 
 var cameraAngle = 0.0
 var cameraHeightOffset = 0.0
-var lastMousePos = Vector2.ZERO
 
 func _process(delta):
 	if not followTarget:
@@ -65,12 +64,7 @@ func _process(delta):
 	
 func _input(event):
 	if event is InputEventMouseMotion:
-		var deltaMouse = event.position - lastMousePos
-		cameraAngle -= deltaMouse.x * mouseSensitivity
-		
-		# Vertical movement
-		cameraHeightOffset += deltaMouse.y * mouseSensitivity * 10.0
+		cameraAngle -= event.relative.x * mouseSensitivity
+		cameraHeightOffset += event.relative.y * mouseSensitivity * 10.0
 		cameraHeightOffset = clamp(cameraHeightOffset, -(height - minHeight), maxHeight - height)
-		
-		lastMousePos = event.position
 	

@@ -126,7 +126,7 @@ func set_turn_active(active: bool) -> void:
 
 func _process(delta: float) -> void:
 	if is_local_player and _turn_active and is_at_rest() and not is_aiming:
-		if Input.is_action_just_pressed("ui_accept"):
+		if Input.is_action_just_pressed("golf_shoot"):
 			_start_aiming()
 
 	if is_aiming:
@@ -134,13 +134,14 @@ func _process(delta: float) -> void:
 		trajectory_drawer.global_position = global_position
 		trajectory_drawer.draw_trajectory(sim_params, aim_direction * aim_power)
 
-		if Input.is_action_just_released("ui_accept"):
+		if Input.is_action_just_released("golf_shoot"):
 			_confirm_shot()
 
 
 func _start_aiming() -> void:
 	is_aiming = true
 	aim_power = 0.0
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	if power_meter_ui:
 		power_meter_ui.show_meter()
 	trajectory_drawer.show_trajectory()
@@ -169,6 +170,7 @@ func _confirm_shot() -> void:
 func _cancel_aim() -> void:
 	is_aiming = false
 	aim_power = 0.0
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	if power_meter_ui:
 		power_meter_ui.hide_meter()
 	trajectory_drawer.hide_trajectory()
