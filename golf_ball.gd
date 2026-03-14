@@ -38,8 +38,8 @@ var is_aiming: bool = false
 var aim_direction: Vector3 = Vector3.ZERO
 var aim_power: float = 0.0
 
-@export var s_max_power: float = 2.0
-@export var s_charge_rate: float = 0.2
+@export var s_max_power: float = 10.0
+@export var s_charge_rate: float = 1.0
 
 # ---- Simulation state ------------------------------------------------------
 

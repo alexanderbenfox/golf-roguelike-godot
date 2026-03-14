@@ -56,6 +56,21 @@ func _build_terrain() -> void:
 	var dir   := Vector3(sin(layout.hole_direction), 0.0, -cos(layout.hole_direction))
 	var cup_flat := Vector3(layout.cup_position.x, 0.0, layout.cup_position.z)
 
+	# Ground collision — wide flat box covering the whole hole so the ball never falls through.
+	# Extends well beyond the fairway on all sides to cover errant shots.
+	var ground_body := StaticBody3D.new()
+	var ground_col := CollisionShape3D.new()
+	var ground_shape := BoxShape3D.new()
+	var ground_width := layout.fairway_width + 60.0   # wide margin either side
+	var ground_len   := layout.hole_length + 40.0     # margin behind tee and past cup
+	ground_shape.size = Vector3(ground_width, 1.0, ground_len)
+	ground_col.shape = ground_shape
+	ground_body.add_child(ground_col)
+	# Centre the box under the hole midpoint; top face sits at y = 0.5
+	ground_body.position = dir * (layout.hole_length * 0.5) + Vector3(0.0, -0.5, 0.0)
+	ground_body.rotation.y = layout.hole_direction
+	add_child(ground_body)
+
 	# Fairway — rectangle from tee to cup aligned with hole direction
 	_add_plane_mesh(
 		dir * (layout.hole_length * 0.5),   # midpoint
