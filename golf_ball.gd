@@ -89,7 +89,8 @@ func setup_physics_params(player = null) -> void:
 	sim_params.linear_damp = linear_damp
 	sim_params.angular_damp = angular_damp
 	sim_params.gravity_scale = gravity_scale
-	sim_params.ground_height = 0.0
+	# Floor box is centered at y=0 with height=1, so top face is at y=0.5
+	sim_params.ground_height = 0.5
 
 	for child in get_children():
 		if child is CollisionShape3D and child.shape is SphereShape3D:
@@ -200,7 +201,14 @@ func _physics_process(delta: float) -> void:
 
 func _simulate_step(delta: float) -> void:
 	sim_state = PhysicsSimulator.simulate_step(sim_state, sim_params, delta)
-	move_and_collide(sim_state.velocity * delta)
+	var collision := move_and_collide(sim_state.velocity * delta)
+
+	if collision:
+		var normal := collision.get_normal()
+		if normal.y < 0.7:
+			# Non-ground obstacle (tree, wall) — reflect velocity so ball doesn't phase through
+			sim_state.velocity = sim_state.velocity.bounce(normal) * 0.6
+
 	ball_moved.emit(global_position)
 
 	if PhysicsSimulator.is_stopped(sim_state, STOP_VELOCITY_THRESHOLD):

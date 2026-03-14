@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://cdghvynsj8vwm"]
+[gd_scene format=3 uid="uid://cdghvynsj8vwm"]
 
 [ext_resource type="Script" uid="uid://dhymcyyachjoi" path="res://scripts/main.gd" id="1_i5arm"]
 [ext_resource type="PackedScene" uid="uid://u2aftfk4jscx" path="res://power_meter.tscn" id="1_noarx"]
@@ -8,8 +8,9 @@
 [ext_resource type="PackedScene" uid="uid://bkq6fyiy48t8k" path="res://scenes/ui/hole_complete_ui.tscn" id="4_jsk3o"]
 [ext_resource type="Script" uid="uid://bvnb01yj2vj80" path="res://scripts/managers/scoring_manager.gd" id="4_r3fl7"]
 [ext_resource type="Script" uid="uid://dq7j4va62md3m" path="res://scripts/managers/course_manager.gd" id="8_4arys"]
-[ext_resource type="Script" path="res://scripts/managers/network_manager.gd" id="9_netmgr"]
-[ext_resource type="Script" path="res://scripts/managers/turn_manager.gd" id="10_turnmgr"]
+[ext_resource type="Script" uid="uid://6c8qmopv4vvg" path="res://scripts/managers/network_manager.gd" id="9_netmgr"]
+[ext_resource type="Resource" uid="uid://bi8bi58hyan6d" path="res://resources/base_hole_gen_config.tres" id="9_tereu"]
+[ext_resource type="Script" uid="uid://dtx1tai8vcl4m" path="res://scripts/managers/turn_manager.gd" id="10_turnmgr"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_a0tk4"]
 friction = 2.0
@@ -26,18 +27,18 @@ albedo_color = Color(0.32960784, 0.6051109, 1.92523e-07, 1)
 material = SubResource("StandardMaterial3D_jka67")
 size = Vector3(100, 1, 100)
 
-[node name="Main" type="Node3D"]
+[node name="Main" type="Node3D" unique_id=663232325]
 script = ExtResource("1_i5arm")
 
-[node name="UICanvas" parent="." instance=ExtResource("1_noarx")]
+[node name="UICanvas" parent="." unique_id=583257842 instance=ExtResource("1_noarx")]
 
-[node name="ScoreUI" parent="UICanvas" instance=ExtResource("3_i5arm")]
+[node name="ScoreUI" parent="UICanvas" unique_id=1093219568 instance=ExtResource("3_i5arm")]
 layout_mode = 0
 
-[node name="HoleCompleteUI" parent="UICanvas" instance=ExtResource("4_jsk3o")]
+[node name="HoleCompleteUI" parent="UICanvas" unique_id=1290429197 instance=ExtResource("4_jsk3o")]
 layout_mode = 0
 
-[node name="GolfBall" parent="." instance=ExtResource("2_a0tk4")]
+[node name="GolfBall" parent="." unique_id=1085271892 instance=ExtResource("2_a0tk4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3279471, 0)
 
 [node name="RigidBody3D" parent="GolfBall" index="0" node_paths=PackedStringArray("power_meter_ui", "floor_node")]
@@ -48,35 +49,36 @@ angular_damp = 2.5
 power_meter_ui = NodePath("../../UICanvas/ProgressBar")
 floor_node = NodePath("../../Floor/StaticBody3D")
 
-[node name="Camera3D" type="Camera3D" parent="." node_paths=PackedStringArray("followTarget")]
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1735598864 node_paths=PackedStringArray("followTarget")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5283225, 2.6659837)
 script = ExtResource("3_a0tk4")
 followTarget = NodePath("../GolfBall/RigidBody3D")
 maxHeight = 8.0
 
-[node name="Floor" type="Node3D" parent="."]
+[node name="Floor" type="Node3D" parent="." unique_id=2055342503]
 
-[node name="StaticBody3D" type="StaticBody3D" parent="Floor"]
+[node name="StaticBody3D" type="StaticBody3D" parent="Floor" unique_id=791373575]
 physics_material_override = SubResource("PhysicsMaterial_a0tk4")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor/StaticBody3D"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor/StaticBody3D" unique_id=707823132]
 shape = SubResource("BoxShape3D_r3fl7")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Floor"]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Floor" unique_id=1798401836]
 mesh = SubResource("BoxMesh_i5arm")
 
-[node name="ScoringManager" type="Node" parent="."]
+[node name="ScoringManager" type="Node" parent="." unique_id=554372091]
 script = ExtResource("4_r3fl7")
 metadata/_custom_type_script = "uid://bvnb01yj2vj80"
 
-[node name="CourseManager" type="Node" parent="."]
+[node name="CourseManager" type="Node" parent="." unique_id=1153306614]
 script = ExtResource("8_4arys")
+config = ExtResource("9_tereu")
 metadata/_custom_type_script = "uid://dq7j4va62md3m"
 
-[node name="NetworkManager" type="Node" parent="."]
+[node name="NetworkManager" type="Node" parent="." unique_id=1448733169]
 script = ExtResource("9_netmgr")
 
-[node name="TurnManager" type="Node" parent="."]
+[node name="TurnManager" type="Node" parent="." unique_id=511950229]
 script = ExtResource("10_turnmgr")
 
 [editable path="UICanvas"]

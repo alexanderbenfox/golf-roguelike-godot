@@ -6,6 +6,7 @@ extends Node3D
 
 const GameStateScript = preload("res://state/game_state.gd")
 const PlayerStateScript = preload("res://state/player_state.gd")
+const ProceduralHoleScript = preload("res://scripts/procedural_hole.gd")
 
 @onready var scoring_manager: ScoringManager = $ScoringManager
 @onready var score_ui = $UICanvas/ScoreUI
@@ -16,7 +17,7 @@ const PlayerStateScript = preload("res://state/player_state.gd")
 @onready var ball: RigidBody3D = $GolfBall/RigidBody3D
 
 var game_state: GameStateScript
-var current_hole: Hole
+var current_hole
 
 
 func _ready() -> void:
@@ -77,20 +78,18 @@ func _on_game_started(_state) -> void:
 # Course / hole callbacks
 # -------------------------------------------------------------------------
 
-func _on_hole_started(hole_number: int, par: int) -> void:
+func _on_hole_started(_hole_number: int, _par: int) -> void:
 	if current_hole:
 		current_hole.queue_free()
 
-	current_hole = Hole.new()
-	current_hole.par = par
-	current_hole.hole_number = hole_number
-	add_child(current_hole)
+	var layout = course_manager.get_current_layout()
 
-	var cup_position := Vector3(0, 0.4, -20)
-	current_hole.set_cup_position(cup_position)
+	current_hole = ProceduralHoleScript.new()
+	add_child(current_hole)
+	current_hole.build(layout)
 	current_hole.ball_entered_cup.connect(_on_ball_entered_cup)
 
-	var tee_position := Vector3(0, 1, 0)
+	var tee_position: Vector3 = current_hole.get_tee_world_position()
 	ball.reset_position(tee_position)
 	ball.setup_physics_params(game_state.players.get(network_manager.get_my_peer_id()))
 

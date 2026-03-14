@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="HoleGenConfig" format=3 uid="uid://bi8bi58hyan6d"]
+
+[ext_resource type="Script" uid="uid://r8bk0ghpae2j" path="res://scripts/hole_gen_config.gd" id="1_ou6pn"]
+
+[resource]
+script = ExtResource("1_ou6pn")
+length_multiplier = 0.5
+tree_density = 2.0
+metadata/_custom_type_script = "uid://r8bk0ghpae2j"
