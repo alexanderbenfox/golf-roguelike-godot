@@ -1,0 +1,13 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/lobby.gd" id="1_lobby"]
+[ext_resource type="Script" path="res://scripts/managers/network_manager.gd" id="2_netmgr"]
+[ext_resource type="PackedScene" path="res://scenes/ui/lobby_ui.tscn" id="3_lobbyui"]
+
+[node name="Lobby" type="Node"]
+script = ExtResource("1_lobby")
+
+[node name="LobbyUI" parent="." instance=ExtResource("3_lobbyui")]
+
+[node name="NetworkManager" type="Node" parent="."]
+script = ExtResource("2_netmgr")

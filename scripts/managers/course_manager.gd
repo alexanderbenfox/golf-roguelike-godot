@@ -7,6 +7,7 @@ signal course_completed(totals_strokes: int, total_par: int)
 @export var holes_in_course: int = 9
 var current_hole_index: int = 0
 var hole_pars: Array[int] = []
+var course_seed: int = 0
 
 var scoring_manager: ScoringManager
 var current_hole: Hole
@@ -14,12 +15,13 @@ var current_hole: Hole
 func _ready() -> void:
     generate_course()
 
-func generate_course():
-    # generate random pars for each hole
+func generate_course(rng_seed: int = 0) -> void:
+    course_seed = rng_seed
+    var rng := RandomNumberGenerator.new()
+    rng.seed = rng_seed
     hole_pars.clear()
     for i in range(holes_in_course):
-        var par = randi_range(3, 5)
-        hole_pars.append(par)
+        hole_pars.append(rng.randi_range(3, 5))
 
 func setup(manager : ScoringManager):
     scoring_manager = manager

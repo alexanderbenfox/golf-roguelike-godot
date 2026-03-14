@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://cdghvynsj8vwm"]
+[gd_scene load_steps=15 format=3 uid="uid://cdghvynsj8vwm"]
 
 [ext_resource type="Script" uid="uid://dhymcyyachjoi" path="res://scripts/main.gd" id="1_i5arm"]
 [ext_resource type="PackedScene" uid="uid://u2aftfk4jscx" path="res://power_meter.tscn" id="1_noarx"]
@@ -8,6 +8,8 @@
 [ext_resource type="PackedScene" uid="uid://bkq6fyiy48t8k" path="res://scenes/ui/hole_complete_ui.tscn" id="4_jsk3o"]
 [ext_resource type="Script" uid="uid://bvnb01yj2vj80" path="res://scripts/managers/scoring_manager.gd" id="4_r3fl7"]
 [ext_resource type="Script" uid="uid://dq7j4va62md3m" path="res://scripts/managers/course_manager.gd" id="8_4arys"]
+[ext_resource type="Script" path="res://scripts/managers/network_manager.gd" id="9_netmgr"]
+[ext_resource type="Script" path="res://scripts/managers/turn_manager.gd" id="10_turnmgr"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_a0tk4"]
 friction = 2.0
@@ -38,13 +40,13 @@ layout_mode = 0
 [node name="GolfBall" parent="." instance=ExtResource("2_a0tk4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3279471, 0)
 
-[node name="RigidBody3D" parent="GolfBall" index="0" node_paths=PackedStringArray("powerMeterUI", "floorNode")]
+[node name="RigidBody3D" parent="GolfBall" index="0" node_paths=PackedStringArray("power_meter_ui", "floor_node")]
 linear_damp_mode = 1
 linear_damp = 1.5
 angular_damp_mode = 1
 angular_damp = 2.5
-powerMeterUI = NodePath("../../UICanvas/ProgressBar")
-floorNode = NodePath("../../Floor/StaticBody3D")
+power_meter_ui = NodePath("../../UICanvas/ProgressBar")
+floor_node = NodePath("../../Floor/StaticBody3D")
 
 [node name="Camera3D" type="Camera3D" parent="." node_paths=PackedStringArray("followTarget")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5283225, 2.6659837)
@@ -70,6 +72,12 @@ metadata/_custom_type_script = "uid://bvnb01yj2vj80"
 [node name="CourseManager" type="Node" parent="."]
 script = ExtResource("8_4arys")
 metadata/_custom_type_script = "uid://dq7j4va62md3m"
+
+[node name="NetworkManager" type="Node" parent="."]
+script = ExtResource("9_netmgr")
+
+[node name="TurnManager" type="Node" parent="."]
+script = ExtResource("10_turnmgr")
 
 [editable path="UICanvas"]
 [editable path="UICanvas/ScoreUI"]
