@@ -14,10 +14,15 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="TestProject"
+config/name="SwingKing"
 run/main_scene="uid://cdghvynsj8vwm"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
+
+[autoload]
+
+MetaProgression="*res://scripts/managers/meta_progression.gd"
+UpgradeRegistry="*res://scripts/managers/upgrade_registry.gd"
 
 [display]
 

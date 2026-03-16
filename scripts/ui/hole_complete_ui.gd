@@ -7,25 +7,24 @@ extends Control
 
 signal next_hole_requested
 
-func _ready():
-    hide()
-    if next_button:
-        next_button.pressed.connect(_on_next_button_pressed)
+func _ready() -> void:
+	hide()
+	if next_button:
+		next_button.pressed.connect(_on_next_button_pressed)
 
-func show_result(strokes: int, par: int, score_name: String):
-    result_label.text = score_name + "!"
-    strokes_label.text = str(strokes) + " strokes on par " + str(par)
+func show_result(strokes: int, par: int, score_name: String) -> void:
+	result_label.text = score_name + "!"
+	strokes_label.text = str(strokes) + " strokes on par " + str(par)
 
-    # Color based on performance
-    if strokes < par:
-        result_label.modulate = Color.GREEN
-    elif strokes == par:
-        result_label.modulate = Color.YELLOW
-    else:
-        result_label.modulate = Color.RED
+	if strokes < par:
+		result_label.modulate = Color.GREEN
+	elif strokes == par:
+		result_label.modulate = Color.YELLOW
+	else:
+		result_label.modulate = Color.RED
 
-    show()
+	show()
 
-func _on_next_button_pressed():
-    hide()
-    next_hole_requested.emit()
+func _on_next_button_pressed() -> void:
+	hide()
+	next_hole_requested.emit()

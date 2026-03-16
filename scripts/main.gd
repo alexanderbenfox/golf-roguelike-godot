@@ -7,17 +7,20 @@ extends Node3D
 const GameStateScript = preload("res://state/game_state.gd")
 const PlayerStateScript = preload("res://state/player_state.gd")
 const ProceduralHoleScript = preload("res://scripts/procedural_hole.gd")
+const UpgradeScreenScript = preload("res://scripts/ui/upgrade_screen.gd")
 
 @onready var scoring_manager: ScoringManager = $ScoringManager
-@onready var score_ui = $UICanvas/ScoreUI
-@onready var hole_complete_ui = $UICanvas/HoleCompleteUI
+@onready var score_ui: Control = $UICanvas/ScoreUI
+@onready var hole_complete_ui: HoleCompleteUI = $UICanvas/HoleCompleteUI
 @onready var course_manager: CourseManager = $CourseManager
-@onready var network_manager = $NetworkManager
-@onready var turn_manager = $TurnManager
+@onready var network_manager: NetworkManager = $NetworkManager
+@onready var turn_manager: TurnManager = $TurnManager
 @onready var ball: RigidBody3D = $GolfBall/RigidBody3D
+@onready var camera: Camera3D = $Camera3D
 
 var game_state: GameStateScript
-var current_hole
+var current_hole: ProceduralHole
+var _upgrade_screen: UpgradeScreen
 
 
 func _ready() -> void:
@@ -34,6 +37,7 @@ func _ready() -> void:
 	# Wire ball signals → network
 	ball.shot_ready.connect(_on_shot_ready)
 	ball.ball_at_rest.connect(_on_ball_at_rest)
+	ball.out_of_bounds.connect(_on_ball_out_of_bounds)
 
 	# Wire network → ball and turn manager
 	network_manager.shot_received.connect(_on_shot_received)
@@ -52,7 +56,7 @@ func _start_singleplayer() -> void:
 	game_state.course_seed = randi()
 
 	var local_id: int = network_manager.get_my_peer_id()
-	var player = PlayerStateScript.new()
+	var player: PlayerState = PlayerStateScript.new()
 	player.peer_id = local_id
 	player.display_name = "Player 1"
 	game_state.players[local_id] = player
@@ -67,7 +71,7 @@ func _start_singleplayer() -> void:
 # Network callbacks
 # -------------------------------------------------------------------------
 
-func _on_game_started(_state) -> void:
+func _on_game_started(_state: GameState) -> void:
 	game_state = _state
 	ball.peer_id = network_manager.get_my_peer_id()
 	ball.is_local_player = true
@@ -82,7 +86,7 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 	if current_hole:
 		current_hole.queue_free()
 
-	var layout = course_manager.get_current_layout()
+	var layout: HoleGenerator.HoleLayout = course_manager.get_current_layout()
 
 	current_hole = ProceduralHoleScript.new()
 	add_child(current_hole)
@@ -91,7 +95,10 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 
 	var tee_position: Vector3 = current_hole.get_tee_world_position()
 	ball.reset_position(tee_position)
-	ball.setup_physics_params(game_state.players.get(network_manager.get_my_peer_id()))
+	ball.set_bounds_check(current_hole.is_out_of_bounds)
+	var my_player: PlayerState = \
+		game_state.players.get(network_manager.get_my_peer_id()) as PlayerState
+	ball.setup_physics_params(my_player)
 
 	turn_manager.start_hole(tee_position)
 
@@ -106,20 +113,66 @@ func _on_ball_at_rest(peer_id: int) -> void:
 	turn_manager.notify_ball_at_rest(peer_id)
 
 
+func _on_ball_out_of_bounds(_peer_id: int) -> void:
+	# Ball has already been teleported back to last_shot_position by golf_ball.gd.
+	# The turn stays active — the player re-aims and shoots from there.
+	_show_oob_message()
+
+
+func _show_oob_message() -> void:
+	var label := Label.new()
+	label.text = "Out of Bounds!"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 28)
+	label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
+	label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	label.offset_top = 80.0
+	$UICanvas.add_child(label)
+	# Remove after 2 seconds
+	get_tree().create_timer(2.0).timeout.connect(label.queue_free)
+
+
 func _on_turn_manager_hole_complete() -> void:
 	pass  # Scoring handled via _on_ball_entered_cup → scoring_manager.complete_hole()
 
 
 func _on_hole_completed(strokes: int, par: int, score_name: String) -> void:
+	camera.input_enabled = false
+	ball.set_turn_active(false)
 	hole_complete_ui.show_result(strokes, par, score_name)
 
 
 func _on_next_hole_requested() -> void:
-	pass  # CourseManager advances automatically via its own signal chain
+	# Last hole already handled by _on_course_completed — don't show upgrade screen
+	if course_manager.current_hole_index >= course_manager.holes_in_course:
+		return
+	_show_upgrade_screen()
+
+
+func _show_upgrade_screen() -> void:
+	_upgrade_screen = UpgradeScreenScript.new()
+	add_child(_upgrade_screen)
+	var choices := UpgradeRegistry.roll_choices(MetaProgression.meta_level)
+	_upgrade_screen.present(choices)
+	_upgrade_screen.upgrade_selected.connect(_on_upgrade_selected)
+
+
+func _on_upgrade_selected(upgrade: UpgradeDefinition) -> void:
+	_upgrade_screen = null  # already queue_free'd itself
+	camera.input_enabled = true
+	if upgrade != null:
+		var my_id: int = network_manager.get_my_peer_id()
+		var player: PlayerState = game_state.players.get(my_id) as PlayerState
+		if player:
+			upgrade.apply(player)
+			ball.setup_physics_params(player)
+	MetaProgression.on_hole_complete()
+	course_manager.advance_to_next_hole()
 
 
 func _on_course_completed(total_strokes: int, total_par: int) -> void:
 	print("Course complete! Strokes: %d  Par: %d" % [total_strokes, total_par])
+	MetaProgression.on_run_complete()
 
 
 # -------------------------------------------------------------------------

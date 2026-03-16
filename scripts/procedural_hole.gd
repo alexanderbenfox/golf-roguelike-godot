@@ -31,6 +31,12 @@ const CUP_HEIGHT     := 0.4
 var layout: HoleGenerator.HoleLayout
 var _cup_area: Area3D
 
+# Bounds for OOB detection — set during _build_terrain()
+var _bounds_center: Vector3      # local offset from node origin (XZ plane)
+var _bounds_half_width: float    # perpendicular to hole direction
+var _bounds_half_length: float   # along hole direction
+var _bounds_angle: float         # radians, matches hole_direction
+
 
 # -------------------------------------------------------------------------
 # Public API
@@ -46,6 +52,22 @@ func build(hole_layout: HoleGenerator.HoleLayout) -> void:
 func get_tee_world_position() -> Vector3:
 	# Tee is always at the hole's scene origin, 1 unit above ground for ball spawn
 	return global_position + Vector3(0.0, 1.0, 0.0)
+
+
+## Returns true if `world_pos` is outside the playable area for this hole.
+func is_out_of_bounds(world_pos: Vector3) -> bool:
+	# Well below ground — definitely fallen through
+	if world_pos.y < -5.0:
+		return true
+
+	# Transform world position into the ground box's local coordinate system
+	var relative: Vector3 = world_pos - global_position - _bounds_center
+	var cos_a: float = cos(-_bounds_angle)
+	var sin_a: float = sin(-_bounds_angle)
+	var local_x: float = relative.x * cos_a - relative.z * sin_a
+	var local_z: float = relative.x * sin_a + relative.z * cos_a
+
+	return absf(local_x) > _bounds_half_width or absf(local_z) > _bounds_half_length
 
 
 # -------------------------------------------------------------------------
@@ -70,6 +92,12 @@ func _build_terrain() -> void:
 	ground_body.position = dir * (layout.hole_length * 0.5) + Vector3(0.0, -0.5, 0.0)
 	ground_body.rotation.y = layout.hole_direction
 	add_child(ground_body)
+
+	# Store bounds for OOB detection
+	_bounds_center = dir * (layout.hole_length * 0.5)
+	_bounds_half_width = ground_width * 0.5
+	_bounds_half_length = ground_len * 0.5
+	_bounds_angle = layout.hole_direction
 
 	# Fairway — rectangle from tee to cup aligned with hole direction
 	_add_plane_mesh(

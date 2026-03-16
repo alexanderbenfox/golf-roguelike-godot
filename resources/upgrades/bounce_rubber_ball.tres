@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://resources/upgrade_definition.gd" id="1"]
+[ext_resource type="Script" path="res://resources/upgrade_effect.gd" id="2"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("2")
+stat = 2
+operation = 0
+value = 1.4
+
+[resource]
+script = ExtResource("1")
+id = "bounce_rubber_ball"
+display_name = "Rubber Ball"
+description = "This ball has the energy retention of a playground toy. Bounces 40% harder."
+rarity = 0
+min_meta_level = 0
+effects = [SubResource("1")]

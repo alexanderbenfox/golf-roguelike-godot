@@ -112,7 +112,7 @@ func _on_server_disconnected() -> void:
 func _request_player_info() -> void:
 	# Called on the client by the server; client responds with their name
 	var my_id := multiplayer.get_unique_id()
-	_register_player.rpc_id(1, player_names.get(my_id, "Player"))
+	_register_player.rpc_id(1, player_names.get(my_id, "Player") as String)
 
 
 @rpc("any_peer", "call_remote", "reliable")

@@ -7,8 +7,8 @@ class SimulationState:
 	var velocity: Vector3
 	var time: float
 	var is_on_ground: bool
-	
-	func _init(pos: Vector3 = Vector3.ZERO, vel: Vector3 = Vector3.ZERO):
+
+	func _init(pos: Vector3 = Vector3.ZERO, vel: Vector3 = Vector3.ZERO) -> void:
 		position = pos
 		velocity = vel
 		time = 0.0
@@ -26,8 +26,8 @@ class PhysicsParams:
 	var ground_bounce: float
 	var gravity_scale: float
 	var ground_height: float
-	
-	func _init():
+
+	func _init() -> void:
 		mass = 0.045
 		ball_radius = 0.02
 		linear_damp = 1.5
@@ -41,88 +41,76 @@ class PhysicsParams:
 
 # Step the simulation forward by delta time
 static func simulate_step(state: SimulationState, params: PhysicsParams, delta: float) -> SimulationState:
-	var new_state = SimulationState.new(state.position, state.velocity)
+	var new_state: SimulationState = SimulationState.new(state.position, state.velocity)
 	new_state.time = state.time + delta
-	
-	# Get gravity
-	var gravity = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
-	var gravity_vector = Vector3(0, -gravity * params.gravity_scale, 0)
-	
-	# Apply gravity
+
+	var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
+	var gravity_vector := Vector3(0.0, -gravity * params.gravity_scale, 0.0)
+
 	new_state.velocity += gravity_vector * delta
-	
-	# Apply linear damping (air resistance)
-	var damping_factor = 1.0 / (1.0 + params.linear_damp * delta)
+
+	var damping_factor := 1.0 / (1.0 + params.linear_damp * delta)
 	new_state.velocity *= damping_factor
-	
-	# Update position
+
 	new_state.position += new_state.velocity * delta
-	
-	# Check ground collision
+
 	if new_state.position.y <= params.ground_height + params.ball_radius:
 		new_state.is_on_ground = true
 		new_state.position.y = params.ground_height + params.ball_radius
-		
-		# Apply bounce
-		if new_state.velocity.y < 0:
-			var combined_bounce = params.ball_bounce * params.ground_bounce
+
+		if new_state.velocity.y < 0.0:
+			var combined_bounce := params.ball_bounce * params.ground_bounce
 			new_state.velocity.y = -new_state.velocity.y * combined_bounce
-			
-			# If bounce is tiny, start rolling
+
 			if abs(new_state.velocity.y) < 0.5:
-				new_state.velocity.y = 0
-		
-		# Apply rolling friction when on ground
+				new_state.velocity.y = 0.0
+
 		if new_state.position.y <= params.ground_height + params.ball_radius + 0.01:
-			var horizontal_velocity = Vector3(new_state.velocity.x, 0, new_state.velocity.z)
-			
+			var horizontal_velocity := Vector3(new_state.velocity.x, 0.0, new_state.velocity.z)
+
 			if horizontal_velocity.length() > 0.01:
-				var combined_friction = params.ball_friction * params.ground_friction
-				var friction_force = -horizontal_velocity.normalized() * combined_friction * gravity * delta
-				
-				var new_horizontal = horizontal_velocity + friction_force
-				
-				# Don't reverse direction
-				if new_horizontal.dot(horizontal_velocity) > 0:
+				var combined_friction := params.ball_friction * params.ground_friction
+				var friction_force := -horizontal_velocity.normalized() * combined_friction * gravity * delta
+
+				var new_horizontal := horizontal_velocity + friction_force
+
+				if new_horizontal.dot(horizontal_velocity) > 0.0:
 					new_state.velocity.x = new_horizontal.x
 					new_state.velocity.z = new_horizontal.z
 				else:
-					new_state.velocity.x = 0
-					new_state.velocity.z = 0
+					new_state.velocity.x = 0.0
+					new_state.velocity.z = 0.0
 	else:
 		new_state.is_on_ground = false
-	
+
 	return new_state
 
 # Simulate full trajectory and return array of positions
 static func simulate_trajectory(
-	initial_velocity: Vector3, 
+	initial_velocity: Vector3,
 	params: PhysicsParams,
 	start_position: Vector3 = Vector3.ZERO,
 	time_step: float = 0.05,
 	max_time: float = 10.0,
 	stop_threshold: float = 0.1
 ) -> Array[Vector3]:
-	
 	var positions: Array[Vector3] = []
-	var state = SimulationState.new(start_position, initial_velocity)
-	
-	var num_steps = int(max_time / time_step)
-	
-	for i in range(num_steps):
+	var state: SimulationState = SimulationState.new(start_position, initial_velocity)
+
+	var num_steps: int = int(max_time / time_step)
+
+	for _i: int in range(num_steps):
 		positions.append(state.position)
-		
+
 		state = simulate_step(state, params, time_step)
-		
-		# Stop if velocity is very low
+
 		if state.velocity.length() < stop_threshold:
 			positions.append(state.position)
 			break
-		
-		# Stop if trajectory goes too far
+
 		if state.position.length() > 200.0:
 			break
-	
+
 	return positions
 
 # Check if simulation has stopped

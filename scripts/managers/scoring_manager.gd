@@ -10,24 +10,24 @@ var current_par: int = 3
 var total_score: int = 0 # total strokes across all holes
 var holes_completed: int = 0
 
-func start_hole(par: int):
+func start_hole(par: int) -> void:
 	current_par = par
 	current_strokes = 0
 	stroke_taken.emit(current_strokes)
-	
-func add_stroke():
+
+func add_stroke() -> void:
 	current_strokes += 1
 	stroke_taken.emit(current_strokes)
-	
-func complete_hole():
+
+func complete_hole() -> void:
 	total_score += current_strokes
 	holes_completed += 1
-	
-	var score_name = get_score_name(current_strokes, current_par)
+
+	var score_name: String = get_score_name(current_strokes, current_par)
 	hole_completed.emit(current_strokes, current_par, score_name)
 	
 func get_score_name(strokes: int, par: int) -> String:
-	var diff = strokes - par
+	var diff: int = strokes - par
 	match diff:
 		-4: return "Condor"
 		-3: return "Albatross"
@@ -40,16 +40,15 @@ func get_score_name(strokes: int, par: int) -> String:
 		_:
 			if diff > 3:
 				return "+" + str(diff)
-			else:
-				return str(diff)
+			return str(diff)
 
 func get_score_relative_to_par() -> int:
 	return current_strokes - current_par
-	
+
 func get_total_relative_to_par(total_par: int) -> int:
 	return total_score - total_par
-	
-func reset_round():
+
+func reset_round() -> void:
 	current_strokes = 0
 	current_par = 3
 	total_score = 0

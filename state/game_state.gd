@@ -32,7 +32,7 @@ func get_current_player_id() -> int:
 
 
 func get_current_player() -> PlayerState:
-	return players.get(get_current_player_id(), null)
+	return players.get(get_current_player_id(), null) as PlayerState
 
 
 func all_players_hole_complete() -> bool:
@@ -83,9 +83,9 @@ static func from_dict(d: Dictionary) -> GameState:
 	gs.course_seed = d["course_seed"]
 	gs.current_hole = d["current_hole"]
 	gs.holes_in_course = d["holes_in_course"]
-	gs.hole_pars = d["hole_pars"]
+	gs.hole_pars.assign(d["hole_pars"])
 	gs.phase = d["phase"]
-	gs.turn_order = d["turn_order"]
+	gs.turn_order.assign(d["turn_order"])
 	gs.current_turn_index = d["current_turn_index"]
 	for pid_str: String in d["players"]:
 		var ps := PlayerState.from_dict(d["players"][pid_str])

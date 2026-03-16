@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://resources/upgrade_definition.gd" id="1"]
+[ext_resource type="Script" path="res://resources/upgrade_effect.gd" id="2"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("2")
+stat = 0
+operation = 0
+value = 1.55
+
+[resource]
+script = ExtResource("1")
+id = "pow_titan_driver"
+display_name = "Titan Driver"
+description = "An oversized, illegal club face. 55% more power — and absolutely no remorse."
+rarity = 2
+min_meta_level = 2
+effects = [SubResource("1")]

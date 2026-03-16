@@ -46,8 +46,10 @@ class HoleLayout:
 ## Generate a HoleLayout by consuming from the shared RNG.
 ## Caller must advance rng state consistently (call once per hole, in order).
 ## Pass a HoleGenConfig to override generation parameters; null uses all defaults.
-static func generate(rng: RandomNumberGenerator, hole_number: int, par: int, config = null) -> HoleLayout:
-	var cfg = config if config != null else HoleGenConfigScript.new()
+static func generate(
+	rng: RandomNumberGenerator, hole_number: int, par: int, config: HoleGenConfig = null
+) -> HoleLayout:
+	var cfg: HoleGenConfig = config if config != null else HoleGenConfigScript.new()
 
 	var layout := HoleLayout.new()
 	layout.hole_number = hole_number
@@ -88,7 +90,7 @@ static func generate(rng: RandomNumberGenerator, hole_number: int, par: int, con
 # Obstacle generation
 # -------------------------------------------------------------------------
 
-static func _generate_obstacles(rng: RandomNumberGenerator, layout: HoleLayout, cfg) -> void:
+static func _generate_obstacles(rng: RandomNumberGenerator, layout: HoleLayout, cfg: HoleGenConfig) -> void:
 	var dir   := Vector3(sin(layout.hole_direction), 0.0, -cos(layout.hole_direction))
 	var right := Vector3(cos(layout.hole_direction), 0.0,  sin(layout.hole_direction))
 

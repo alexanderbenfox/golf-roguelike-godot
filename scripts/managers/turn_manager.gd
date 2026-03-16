@@ -45,7 +45,8 @@ func start_hole(tee_position: Vector3) -> void:
 # Sort by total strokes ascending so the player furthest behind shoots first
 # (matches real stroke-play convention).
 func _sort_turn_order() -> void:
-	var ids: Array = game_state.players.keys()
+	var ids: Array[int] = []
+	ids.assign(game_state.players.keys())
 	ids.sort_custom(func(a: int, b: int) -> bool:
 		return game_state.players[a].total_strokes < game_state.players[b].total_strokes
 	)
@@ -78,7 +79,7 @@ func notify_ball_at_rest(peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
 
-	var player: PlayerState = game_state.players.get(peer_id)
+	var player: PlayerState = game_state.players.get(peer_id) as PlayerState
 	if player == null:
 		return
 
@@ -96,7 +97,7 @@ func notify_player_holed_out(peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
 
-	var player: PlayerState = game_state.players.get(peer_id)
+	var player: PlayerState = game_state.players.get(peer_id) as PlayerState
 	if player == null:
 		return
 

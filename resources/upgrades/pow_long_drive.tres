@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://resources/upgrade_definition.gd" id="1"]
+[ext_resource type="Script" path="res://resources/upgrade_effect.gd" id="2"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("2")
+stat = 0
+operation = 0
+value = 1.35
+
+[resource]
+script = ExtResource("1")
+id = "pow_long_drive"
+display_name = "Long Drive"
+description = "A perfectly weighted club head adds 35% more distance to every shot."
+rarity = 1
+min_meta_level = 0
+effects = [SubResource("1")]

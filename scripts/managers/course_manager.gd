@@ -25,37 +25,38 @@ func _ready() -> void:
 
 func generate_course(rng_seed: int = 0) -> void:
     course_seed = rng_seed
-    var cfg = config if config != null else HoleGenConfigScript.new()
+    var cfg: HoleGenConfig = \
+        config as HoleGenConfig if config != null else HoleGenConfigScript.new()
     var rng := RandomNumberGenerator.new()
     rng.seed = rng_seed
     hole_pars.clear()
     hole_layouts.clear()
-    for i in range(holes_in_course):
-        var par := rng.randi_range(cfg.min_par, cfg.max_par)
+    for i: int in range(holes_in_course):
+        var par: int = rng.randi_range(cfg.min_par, cfg.max_par)
         hole_pars.append(par)
         hole_layouts.append(HoleGeneratorScript.generate(rng, i + 1, par, cfg))
 
 
-func get_current_layout():
+func get_current_layout() -> HoleGenerator.HoleLayout:
     if current_hole_index < hole_layouts.size():
         return hole_layouts[current_hole_index]
     return null
 
-func setup(manager : ScoringManager):
+func setup(manager: ScoringManager) -> void:
     scoring_manager = manager
     scoring_manager.hole_completed.connect(_on_hole_completed)
 
-func start_course():
+func start_course() -> void:
     current_hole_index = 0
     start_next_hole()
 
-func start_next_hole():
+func start_next_hole() -> void:
     if current_hole_index >= holes_in_course:
         complete_course()
         return
 
-    var par = hole_pars[current_hole_index]
-    var hole_num = current_hole_index + 1
+    var par: int = hole_pars[current_hole_index]
+    var hole_num: int = current_hole_index + 1
 
     print("Starting hole ", hole_num, " - Par ", par)
 
@@ -64,24 +65,25 @@ func start_next_hole():
 
     hole_started.emit(hole_num, par)
 
-func _on_hole_completed(strokes: int, par: int, score_name: String):
+func _on_hole_completed(strokes: int, par: int, score_name: String) -> void:
     print("Hole completed! Score: ", score_name, " (", strokes, " strokes on par ", par, ")")
-
     current_hole_index += 1
+    # Flow continues via Main._on_next_hole_requested → upgrade screen → advance_to_next_hole()
 
-    #short delay before next hole
-    await get_tree().create_timer(2.0).timeout
+
+## Called by Main after the upgrade screen is dismissed to start the next hole.
+func advance_to_next_hole() -> void:
     start_next_hole()
 
-func complete_course():
+func complete_course() -> void:
     print("Course completed!")
     if scoring_manager:
-        var total_par = get_total_par()
+        var total_par: int = get_total_par()
         course_completed.emit(scoring_manager.total_score, total_par)
 
 func get_total_par() -> int:
-    var total = 0
-    for par in hole_pars:
+    var total: int = 0
+    for par: int in hole_pars:
         total += par
     return total
 

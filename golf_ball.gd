@@ -24,6 +24,9 @@ signal ball_at_rest(peer_id: int)
 ## Emitted each frame while simulating, so cup detection can poll position.
 signal ball_moved(position: Vector3)
 
+## Emitted when the ball goes out of bounds and is teleported back.
+signal out_of_bounds(peer_id: int)
+
 # ---- Identity --------------------------------------------------------------
 
 ## Set by the scene that owns this ball so signals carry the right peer_id.
@@ -46,6 +49,9 @@ var aim_power: float = 0.0
 var is_simulating: bool = false
 var sim_state: PhysicsSimulator.SimulationState
 var sim_params: PhysicsSimulator.PhysicsParams
+var _power_multiplier: float = 1.0
+var last_shot_position: Vector3 = Vector3.ZERO
+var _bounds_check: Callable
 
 const STOP_VELOCITY_THRESHOLD: float = 0.3
 
@@ -83,7 +89,7 @@ func _ready() -> void:
 # Physics params — built from the Godot node properties + optional modifiers
 # -------------------------------------------------------------------------
 
-func setup_physics_params(player = null) -> void:
+func setup_physics_params(player: PlayerState = null) -> void:
 	sim_params = PhysicsSimulator.PhysicsParams.new()
 	sim_params.mass = mass
 	sim_params.linear_damp = linear_damp
@@ -92,9 +98,9 @@ func setup_physics_params(player = null) -> void:
 	# Floor box is centered at y=0 with height=1, so top face is at y=0.5
 	sim_params.ground_height = 0.5
 
-	for child in get_children():
-		if child is CollisionShape3D and child.shape is SphereShape3D:
-			sim_params.ball_radius = child.shape.radius
+	for child: Node in get_children():
+		if child is CollisionShape3D and (child as CollisionShape3D).shape is SphereShape3D:
+			sim_params.ball_radius = (child as CollisionShape3D).shape.radius
 			break
 
 	if physics_material_override:
@@ -109,11 +115,17 @@ func setup_physics_params(player = null) -> void:
 	if player:
 		sim_params.ball_bounce *= player.bounce_modifier
 		sim_params.ground_friction *= player.friction_modifier
+		_power_multiplier = player.power_multiplier
 
 
 # -------------------------------------------------------------------------
 # Turn control — called by TurnManager / Main
 # -------------------------------------------------------------------------
+
+## Assign a Callable(pos: Vector3) -> bool that returns true when out of bounds.
+func set_bounds_check(check: Callable) -> void:
+	_bounds_check = check
+
 
 func set_turn_active(active: bool) -> void:
 	_turn_active = active
@@ -184,7 +196,8 @@ func _cancel_aim() -> void:
 ## Starts physics simulation from the given shot parameters.
 ## Called after the server has validated and broadcast the shot.
 func play_shot(direction: Vector3, power: float) -> void:
-	var initial_velocity := (direction * power) / sim_params.mass
+	last_shot_position = global_position
+	var initial_velocity := (direction * power * _power_multiplier) / sim_params.mass
 	sim_state = PhysicsSimulator.SimulationState.new(global_position, initial_velocity)
 	is_simulating = true
 	freeze = true
@@ -209,12 +222,27 @@ func _simulate_step(delta: float) -> void:
 			# Non-ground obstacle (tree, wall) — reflect velocity so ball doesn't phase through
 			sim_state.velocity = sim_state.velocity.bounce(normal) * 0.6
 
+	# Out-of-bounds check using the current hole's terrain bounds
+	if not _bounds_check.is_null() and _bounds_check.call(global_position):
+		_handle_out_of_bounds()
+		return
+
 	ball_moved.emit(global_position)
 
 	if PhysicsSimulator.is_stopped(sim_state, STOP_VELOCITY_THRESHOLD):
 		is_simulating = false
 		freeze = false
 		ball_at_rest.emit(peer_id)
+
+
+func _handle_out_of_bounds() -> void:
+	is_simulating = false
+	freeze = false
+	global_position = last_shot_position
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	sim_state = PhysicsSimulator.SimulationState.new(last_shot_position, Vector3.ZERO)
+	out_of_bounds.emit(peer_id)
 
 
 # -------------------------------------------------------------------------
@@ -227,6 +255,7 @@ func is_at_rest() -> bool:
 
 func reset_position(pos: Vector3) -> void:
 	global_position = pos
+	last_shot_position = pos
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	is_simulating = false
