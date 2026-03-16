@@ -1,12 +1,11 @@
-[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="UpgradeDefinition" format=3 uid="uid://uauq1qbwu144"]
 
-[ext_resource type="Script" path="res://resources/upgrade_definition.gd" id="1"]
-[ext_resource type="Script" path="res://resources/upgrade_effect.gd" id="2"]
+[ext_resource type="Script" uid="uid://clgofk0vig4am" path="res://resources/upgrade_definition.gd" id="1"]
+[ext_resource type="Script" uid="uid://cksdm8u046p4e" path="res://resources/upgrade_effect.gd" id="2"]
 
 [sub_resource type="Resource" id="1"]
 script = ExtResource("2")
 stat = 1
-operation = 0
 value = 1.3
 
 [resource]
@@ -15,5 +14,4 @@ id = "fric_iron_control"
 display_name = "Iron Control"
 description = "A high-spin ball grabs the turf and stops 30% sooner — great for approach shots."
 rarity = 1
-min_meta_level = 0
-effects = [SubResource("1")]
+effects = Array[ExtResource("2")]([SubResource("1")])

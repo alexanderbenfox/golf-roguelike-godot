@@ -62,6 +62,7 @@ const STOP_VELOCITY_THRESHOLD: float = 0.3
 @export var floor_node: StaticBody3D
 
 @onready var trajectory_drawer: TrajectoryDrawer
+@onready var ball_trail: Node3D
 @onready var camera: Camera3D = get_viewport().get_camera_3d()
 
 # ---- Whether this ball is allowed to accept input this frame ---------------
@@ -80,6 +81,12 @@ func _ready() -> void:
 
 	trajectory_drawer = TrajectoryDrawer.new()
 	add_child(trajectory_drawer)
+
+	var trail_script: GDScript = preload("res://scripts/utility/ball_trail.gd")
+	ball_trail = trail_script.new()
+	add_child(ball_trail)
+
+	_create_shadow_decal()
 
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 
@@ -147,9 +154,12 @@ func _process(delta: float) -> void:
 
 	if is_aiming:
 		_update_aim(delta)
-		trajectory_drawer.global_position = global_position
+		trajectory_drawer.global_position = Vector3.ZERO
 		trajectory_drawer.draw_trajectory(
-			sim_params, aim_direction * aim_power * _power_multiplier, _accuracy
+			sim_params,
+			aim_direction * aim_power * _power_multiplier,
+			_accuracy,
+			global_position,
 		)
 
 		if Input.is_action_just_released("golf_shoot"):
@@ -216,6 +226,8 @@ func play_shot(direction: Vector3, power: float) -> void:
 	sim_state = PhysicsSimulator.SimulationState.new(global_position, initial_velocity)
 	is_simulating = true
 	freeze = true
+	_spawn_impact_flash(global_position, 1.5)
+	ball_trail.start()
 	if camera and camera.has_method("start_follow_shot"):
 		camera.start_follow_shot()
 
@@ -236,23 +248,25 @@ func _simulate_step(delta: float) -> void:
 	if collision:
 		var normal := collision.get_normal()
 		if normal.y < 0.7:
-			# Non-ground obstacle (tree, wall) — reflect velocity so ball doesn't phase through
 			sim_state.velocity = sim_state.velocity.bounce(normal) * 0.6
+			_spawn_impact_flash(collision.get_position(), 0.6)
 
 	# Out-of-bounds check using the current hole's terrain bounds
 	if not _bounds_check.is_null() and _bounds_check.call(global_position):
 		_handle_out_of_bounds()
 		return
 
-	# Feed velocity to the follow camera each frame
+	# Feed velocity to the follow camera and trail each frame
 	if camera and camera.has_method("set_follow_velocity"):
 		camera.set_follow_velocity(sim_state.velocity)
+	ball_trail.add_point(global_position, sim_state.velocity)
 
 	ball_moved.emit(global_position)
 
 	if PhysicsSimulator.is_stopped(sim_state, STOP_VELOCITY_THRESHOLD):
 		is_simulating = false
 		freeze = false
+		ball_trail.stop()
 		if camera and camera.has_method("stop_follow_shot"):
 			camera.stop_follow_shot()
 		ball_at_rest.emit(peer_id)
@@ -261,6 +275,7 @@ func _simulate_step(delta: float) -> void:
 func _handle_out_of_bounds() -> void:
 	is_simulating = false
 	freeze = false
+	ball_trail.stop()
 	if camera and camera.has_method("stop_follow_shot"):
 		camera.stop_follow_shot()
 	global_position = last_shot_position
@@ -273,6 +288,66 @@ func _handle_out_of_bounds() -> void:
 # -------------------------------------------------------------------------
 # Helpers
 # -------------------------------------------------------------------------
+
+func _create_shadow_decal() -> void:
+	var decal := Decal.new()
+	decal.size = Vector3(1.5, 20.0, 1.5)
+	decal.position = Vector3(0.0, -0.1, 0.0)
+
+	# Radial gradient: dark center fading to transparent edge
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(0.0, 0.0, 0.0, 0.5))
+	gradient.set_color(1, Color(0.0, 0.0, 0.0, 0.0))
+	gradient.set_offset(0, 0.0)
+	gradient.set_offset(1, 1.0)
+
+	var tex := GradientTexture2D.new()
+	tex.gradient = gradient
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	tex.width = 64
+	tex.height = 64
+
+	decal.texture_albedo = tex
+	decal.upper_fade = 0.0
+	decal.lower_fade = 0.2
+	decal.cull_mask = 1
+	add_child(decal)
+
+
+func _spawn_impact_flash(pos: Vector3, scale_mult: float = 1.0) -> void:
+	var particles := GPUParticles3D.new()
+	var mat := ParticleProcessMaterial.new()
+	mat.direction = Vector3(0.0, 1.0, 0.0)
+	mat.spread = 90.0
+	mat.initial_velocity_min = 2.0 * scale_mult
+	mat.initial_velocity_max = 5.0 * scale_mult
+	mat.gravity = Vector3(0.0, -8.0, 0.0)
+	mat.scale_min = 0.8
+	mat.scale_max = 1.5
+
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.06
+	mesh.height = 0.12
+	var mesh_mat := StandardMaterial3D.new()
+	mesh_mat.albedo_color = Color(1.0, 1.0, 0.9, 0.9)
+	mesh_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mesh.material = mesh_mat
+
+	particles.process_material = mat
+	particles.draw_pass_1 = mesh
+	particles.emitting = true
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.amount = int(12 * scale_mult)
+	particles.lifetime = 0.5
+	particles.global_position = pos
+
+	get_tree().root.add_child(particles)
+	get_tree().create_timer(1.5).timeout.connect(particles.queue_free)
+
 
 func is_at_rest() -> bool:
 	return not is_simulating and linear_velocity.length() < 0.1

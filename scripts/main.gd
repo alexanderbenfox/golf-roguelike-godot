@@ -9,9 +9,14 @@ const PlayerStateScript = preload("res://state/player_state.gd")
 const ProceduralHoleScript = preload("res://scripts/procedural_hole.gd")
 const UpgradeScreenScript = preload("res://scripts/ui/upgrade_screen.gd")
 const GolferStatsScript = preload("res://resources/golfer_stats.gd")
+const ScorecardUIScript = preload("res://scripts/ui/scorecard_ui.gd")
 
 ## Starting stats for the golfer — edit in Inspector to tune defaults.
 @export var golfer_stats: Resource  # GolferStats
+
+## Available upgrades — drag UpgradeDefinition .tres files here in the Inspector.
+## Toggle each definition's `enabled` flag to include/exclude it from rolls.
+@export var upgrade_pool: Array[UpgradeDefinition] = []
 
 @onready var scoring_manager: ScoringManager = $ScoringManager
 @onready var score_ui: Control = $UICanvas/ScoreUI
@@ -26,6 +31,7 @@ var game_state: GameStateScript
 var current_hole: ProceduralHole
 var _upgrade_screen: UpgradeScreen
 var _distance_label: Label
+var _scorecard: Control
 
 
 func _ready() -> void:
@@ -50,8 +56,51 @@ func _ready() -> void:
 	turn_manager.turn_started.connect(_on_turn_started)
 	turn_manager.hole_complete.connect(_on_turn_manager_hole_complete)
 
+	# Set up sky and lighting
+	_setup_environment()
+
+	# Provide the editor-configured upgrade pool to the registry
+	UpgradeRegistry.set_pool(upgrade_pool)
+
+	# Scorecard
+	_scorecard = ScorecardUIScript.new()
+	$UICanvas.add_child(_scorecard)
+
 	# Start single-player session
 	_start_singleplayer()
+
+
+func _setup_environment() -> void:
+	var env := Environment.new()
+
+	# Sky
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.35, 0.55, 0.85)
+	sky_mat.sky_horizon_color = Color(0.65, 0.78, 0.92)
+	sky_mat.ground_bottom_color = Color(0.25, 0.40, 0.15)
+	sky_mat.ground_horizon_color = Color(0.65, 0.78, 0.92)
+	sky_mat.sun_angle_max = 30.0
+
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	env.sky = sky
+	env.background_mode = Environment.BG_SKY
+
+	# Ambient light from sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.4
+
+	var world_env := WorldEnvironment.new()
+	world_env.environment = env
+	add_child(world_env)
+
+	# Directional sun light
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-45.0, -30.0, 0.0)
+	sun.light_energy = 1.2
+	sun.light_color = Color(1.0, 0.97, 0.88)
+	sun.shadow_enabled = true
+	add_child(sun)
 
 
 func _start_singleplayer() -> void:
@@ -103,14 +152,20 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 	var tee_position: Vector3 = current_hole.get_tee_world_position()
 	ball.reset_position(tee_position)
 	ball.set_bounds_check(current_hole.is_out_of_bounds)
+
+	# Point camera toward the cup
+	var to_cup: Vector3 = layout.cup_position - tee_position
+	camera.camera_angle = atan2(-to_cup.x, -to_cup.z)
 	var my_player: PlayerState = \
 		game_state.players.get(network_manager.get_my_peer_id()) as PlayerState
 	ball.setup_physics_params(my_player)
 
+	_show_hole_intro(_hole_number, _par)
 	turn_manager.start_hole(tee_position)
 
 
 func _on_ball_entered_cup() -> void:
+	_spawn_cup_celebration(ball.global_position)
 	var my_id: int = network_manager.get_my_peer_id()
 	scoring_manager.complete_hole()
 	turn_manager.notify_player_holed_out(my_id)
@@ -159,6 +214,62 @@ func _hide_distance_label() -> void:
 		_distance_label = null
 
 
+func _spawn_cup_celebration(pos: Vector3) -> void:
+	var particles := GPUParticles3D.new()
+	var mat := ParticleProcessMaterial.new()
+	mat.direction = Vector3(0.0, 1.0, 0.0)
+	mat.spread = 60.0
+	mat.initial_velocity_min = 4.0
+	mat.initial_velocity_max = 8.0
+	mat.gravity = Vector3(0.0, -5.0, 0.0)
+	mat.scale_min = 0.8
+	mat.scale_max = 1.5
+	mat.color = Color(1.0, 0.85, 0.2)
+
+	var color_ramp := Gradient.new()
+	color_ramp.set_color(0, Color(1.0, 0.9, 0.3, 1.0))
+	color_ramp.set_color(1, Color(1.0, 0.5, 0.1, 0.0))
+	var color_tex := GradientTexture1D.new()
+	color_tex.gradient = color_ramp
+	mat.color_ramp = color_tex
+
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.06
+	mesh.height = 0.12
+	var mesh_mat := StandardMaterial3D.new()
+	mesh_mat.albedo_color = Color(1.0, 0.9, 0.3)
+	mesh_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh.material = mesh_mat
+
+	particles.process_material = mat
+	particles.draw_pass_1 = mesh
+	particles.emitting = true
+	particles.one_shot = true
+	particles.explosiveness = 0.9
+	particles.amount = 30
+	particles.lifetime = 1.2
+	particles.global_position = pos + Vector3(0.0, 0.5, 0.0)
+	add_child(particles)
+	get_tree().create_timer(2.5).timeout.connect(particles.queue_free)
+
+
+func _show_hole_intro(hole_number: int, par: int) -> void:
+	var label := Label.new()
+	label.text = "Hole %d  —  Par %d" % [hole_number, par]
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 42)
+	label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+	label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	label.modulate.a = 0.0
+	$UICanvas.add_child(label)
+
+	var tween := create_tween()
+	tween.tween_property(label, "modulate:a", 1.0, 0.4)
+	tween.tween_interval(1.5)
+	tween.tween_property(label, "modulate:a", 0.0, 0.6)
+	tween.tween_callback(label.queue_free)
+
+
 func _show_oob_message() -> void:
 	var label := Label.new()
 	label.text = "Out of Bounds!"
@@ -179,6 +290,10 @@ func _on_turn_manager_hole_complete() -> void:
 func _on_hole_completed(strokes: int, par: int, score_name: String) -> void:
 	camera.input_enabled = false
 	ball.set_turn_active(false)
+	_scorecard.add_hole_result(
+		course_manager.get_current_hole_number(), par, strokes, score_name
+	)
+	_scorecard.show_scorecard()
 	hole_complete_ui.show_result(strokes, par, score_name)
 
 
@@ -200,6 +315,7 @@ func _show_upgrade_screen() -> void:
 func _on_upgrade_selected(upgrade: UpgradeDefinition) -> void:
 	_upgrade_screen = null  # already queue_free'd itself
 	camera.input_enabled = true
+	_scorecard.hide_scorecard()
 	if upgrade != null:
 		var my_id: int = network_manager.get_my_peer_id()
 		var player: PlayerState = game_state.players.get(my_id) as PlayerState

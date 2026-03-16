@@ -68,6 +68,7 @@ func draw_trajectory(
 	params: PhysicsSimulator.PhysicsParams,
 	impulse: Vector3,
 	accuracy: float = 1.0,
+	start_pos: Vector3 = Vector3.ZERO,
 ) -> void:
 	_mesh.clear_surfaces()
 
@@ -78,7 +79,7 @@ func draw_trajectory(
 	_update_arrow_color(impulse.length())
 
 	var positions: Array[Vector3] = PhysicsSimulator.simulate_trajectory(
-		initial_velocity, params, Vector3.ZERO, 0.05, 10.0, 0.1
+		initial_velocity, params, start_pos, 0.05, 10.0, 0.1
 	)
 
 	if positions.size() < 2:
@@ -92,7 +93,7 @@ func draw_trajectory(
 	# Draw accuracy variance cone if not perfectly accurate
 	var spread: float = (1.0 - clampf(accuracy, 0.0, 1.0)) * MAX_SPREAD_RADIANS
 	if spread > 0.001:
-		_draw_variance_cone(impulse, params, spread)
+		_draw_variance_cone(impulse, params, spread, start_pos)
 
 
 # -------------------------------------------------------------------------
@@ -201,7 +202,7 @@ func _draw_halo(center: Vector3, ground_height: float) -> void:
 # Accuracy variance — edge trajectories and landing arc
 # -------------------------------------------------------------------------
 
-func _draw_variance_cone(impulse: Vector3, params: PhysicsSimulator.PhysicsParams, spread: float) -> void:
+func _draw_variance_cone(impulse: Vector3, params: PhysicsSimulator.PhysicsParams, spread: float, start_pos: Vector3 = Vector3.ZERO) -> void:
 	var left_impulse: Vector3 = impulse.rotated(Vector3.UP, spread)
 	var right_impulse: Vector3 = impulse.rotated(Vector3.UP, -spread)
 
@@ -209,10 +210,10 @@ func _draw_variance_cone(impulse: Vector3, params: PhysicsSimulator.PhysicsParam
 	var right_vel: Vector3 = right_impulse / params.mass
 
 	var left_pos: Array[Vector3] = PhysicsSimulator.simulate_trajectory(
-		left_vel, params, Vector3.ZERO, 0.05, 10.0, 0.1
+		left_vel, params, start_pos, 0.05, 10.0, 0.1
 	)
 	var right_pos: Array[Vector3] = PhysicsSimulator.simulate_trajectory(
-		right_vel, params, Vector3.ZERO, 0.05, 10.0, 0.1
+		right_vel, params, start_pos, 0.05, 10.0, 0.1
 	)
 
 	# Left edge line

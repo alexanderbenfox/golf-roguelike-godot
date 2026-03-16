@@ -3,15 +3,25 @@
 [ext_resource type="Script" uid="uid://dhymcyyachjoi" path="res://scripts/main.gd" id="1_i5arm"]
 [ext_resource type="PackedScene" uid="uid://u2aftfk4jscx" path="res://power_meter.tscn" id="1_noarx"]
 [ext_resource type="PackedScene" uid="uid://ctonnkhe8q38j" path="res://golf_ball.tscn" id="2_a0tk4"]
-[ext_resource type="Resource" path="res://resources/default_golfer_stats.tres" id="2_cdqbm"]
+[ext_resource type="Resource" uid="uid://5wmwcf0vj3k2" path="res://resources/default_golfer_stats.tres" id="2_cdqbm"]
 [ext_resource type="Script" uid="uid://qjo20cg20csh" path="res://camera_3d.gd" id="3_a0tk4"]
 [ext_resource type="PackedScene" uid="uid://vbfwa6j6ip78" path="res://scenes/ui/score_ui.tscn" id="3_i5arm"]
+[ext_resource type="Script" uid="uid://clgofk0vig4am" path="res://resources/upgrade_definition.gd" id="3_s0gvp"]
 [ext_resource type="PackedScene" uid="uid://bkq6fyiy48t8k" path="res://scenes/ui/hole_complete_ui.tscn" id="4_jsk3o"]
 [ext_resource type="Script" uid="uid://bvnb01yj2vj80" path="res://scripts/managers/scoring_manager.gd" id="4_r3fl7"]
 [ext_resource type="Script" uid="uid://dq7j4va62md3m" path="res://scripts/managers/course_manager.gd" id="8_4arys"]
 [ext_resource type="Script" uid="uid://6c8qmopv4vvg" path="res://scripts/managers/network_manager.gd" id="9_netmgr"]
 [ext_resource type="Resource" uid="uid://bi8bi58hyan6d" path="res://resources/base_hole_gen_config.tres" id="9_tereu"]
 [ext_resource type="Script" uid="uid://dtx1tai8vcl4m" path="res://scripts/managers/turn_manager.gd" id="10_turnmgr"]
+[ext_resource type="Resource" uid="uid://cqaysdmm2fhgi" path="res://resources/upgrades/pow_driving_range.tres" id="11_upg1"]
+[ext_resource type="Resource" uid="uid://5bec4m4sgds4" path="res://resources/upgrades/pow_long_drive.tres" id="11_upg2"]
+[ext_resource type="Resource" uid="uid://bnajguommw4xk" path="res://resources/upgrades/pow_titan_driver.tres" id="11_upg3"]
+[ext_resource type="Resource" uid="uid://dwd82lfg40pit" path="res://resources/upgrades/fric_smooth_roll.tres" id="11_upg4"]
+[ext_resource type="Resource" uid="uid://uauq1qbwu144" path="res://resources/upgrades/fric_iron_control.tres" id="11_upg5"]
+[ext_resource type="Resource" uid="uid://djcbxx40puvhq" path="res://resources/upgrades/bounce_rubber_ball.tres" id="11_upg6"]
+[ext_resource type="Resource" uid="uid://vefs7mxkwq73" path="res://resources/upgrades/bounce_dead_drop.tres" id="11_upg7"]
+[ext_resource type="Resource" uid="uid://bla40gb1alvk6" path="res://resources/upgrades/straight_shot.tres" id="11_upg8"]
+[ext_resource type="Resource" uid="uid://o8ca1ucqx71k" path="res://resources/upgrades/all_golden_club.tres" id="11_upg9"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_a0tk4"]
 friction = 2.0
@@ -31,6 +41,7 @@ size = Vector3(100, 1, 100)
 [node name="Main" type="Node3D" unique_id=663232325]
 script = ExtResource("1_i5arm")
 golfer_stats = ExtResource("2_cdqbm")
+upgrade_pool = Array[ExtResource("3_s0gvp")]([ExtResource("11_upg1"), ExtResource("11_upg2"), ExtResource("11_upg3"), ExtResource("11_upg4"), ExtResource("11_upg5"), ExtResource("11_upg6"), ExtResource("11_upg7"), ExtResource("11_upg8"), ExtResource("11_upg9")])
 
 [node name="UICanvas" parent="." unique_id=583257842 instance=ExtResource("1_noarx")]
 

@@ -2,8 +2,10 @@
 ##
 ## Registered as an Autoload named "UpgradeRegistry" in Project Settings.
 ##
-## To add a new upgrade: just drop a .tres file into res://resources/upgrades/.
-## This registry auto-discovers all files in that folder on startup.
+## The upgrade pool is configured in the editor on the Main scene node via
+## its `upgrade_pool` export. Call `set_pool()` at startup to populate
+## the registry. Each UpgradeDefinition has an `enabled` flag — disabled
+## upgrades are excluded from rolls.
 ##
 ## Rarity weights control how often each tier appears when rolling choices:
 ##   Common   — 60%
@@ -11,35 +13,16 @@
 ##   Rare     — 10%
 extends Node
 
-const UPGRADES_DIR := "res://resources/upgrades/"
-
 var upgrade_pool: Array[UpgradeDefinition] = []
 
 
-func _ready() -> void:
-	_load_upgrades()
-
-
-func _load_upgrades() -> void:
+## Called by Main to provide the editor-configured upgrade list.
+func set_pool(pool: Array[UpgradeDefinition]) -> void:
 	upgrade_pool.clear()
-	var dir := DirAccess.open(UPGRADES_DIR)
-	if dir == null:
-		push_warning("UpgradeRegistry: folder not found — %s" % UPGRADES_DIR)
-		return
-	dir.list_dir_begin()
-	var file_name: String = dir.get_next()
-	while file_name != "":
-		if file_name.ends_with(".tres"):
-			var path := UPGRADES_DIR + file_name
-			var res: Resource = load(path)
-			var def := res as UpgradeDefinition
-			if def != null:
-				upgrade_pool.append(def)
-			else:
-				push_warning("UpgradeRegistry: skipping %s (not an UpgradeDefinition)" % path)
-		file_name = dir.get_next()
-	dir.list_dir_end()
-	print("UpgradeRegistry: loaded %d upgrades" % upgrade_pool.size())
+	for def: UpgradeDefinition in pool:
+		if def != null:
+			upgrade_pool.append(def)
+	print("UpgradeRegistry: received %d upgrades" % upgrade_pool.size())
 
 const RARITY_WEIGHTS: Dictionary = {
 	0: 60,  # COMMON
@@ -56,11 +39,11 @@ func roll_choices(meta_level: int, count: int = 3, rng: RandomNumberGenerator = 
 		rng = RandomNumberGenerator.new()
 		rng.randomize()
 
-	# Filter by meta level
+	# Filter by enabled flag and meta level
 	var available: Array = []
 	for u in upgrade_pool:
 		var def: UpgradeDefinition = u as UpgradeDefinition
-		if def != null and def.min_meta_level <= meta_level:
+		if def != null and def.enabled and def.min_meta_level <= meta_level:
 			available.append(def)
 
 	if available.is_empty():

@@ -13,4 +13,4 @@ id = "pow_long_drive"
 display_name = "Long Drive"
 description = "A perfectly weighted club head adds 35% more distance to every shot."
 rarity = 1
-effects = [SubResource("1")]
+effects = Array[ExtResource("2")]([SubResource("1")])

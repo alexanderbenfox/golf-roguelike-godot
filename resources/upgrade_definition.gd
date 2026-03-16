@@ -24,6 +24,8 @@ enum Rarity {
 ## Minimum meta-progression level required for this upgrade to appear in the pool.
 ## Level 0 = always available. See MetaProgression for thresholds.
 @export var min_meta_level: int = 0
+## When false, this upgrade will not appear in the roll pool even if assigned.
+@export var enabled: bool = true
 @export var effects: Array[UpgradeEffect] = []
 
 

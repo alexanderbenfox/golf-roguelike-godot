@@ -1,24 +1,20 @@
-[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="UpgradeDefinition" format=3 uid="uid://o8ca1ucqx71k"]
 
-[ext_resource type="Script" path="res://resources/upgrade_definition.gd" id="1"]
-[ext_resource type="Script" path="res://resources/upgrade_effect.gd" id="2"]
+[ext_resource type="Script" uid="uid://clgofk0vig4am" path="res://resources/upgrade_definition.gd" id="1"]
+[ext_resource type="Script" uid="uid://cksdm8u046p4e" path="res://resources/upgrade_effect.gd" id="2"]
 
 [sub_resource type="Resource" id="1"]
 script = ExtResource("2")
-stat = 0
-operation = 0
 value = 1.15
 
 [sub_resource type="Resource" id="2"]
 script = ExtResource("2")
 stat = 1
-operation = 0
 value = 0.9
 
 [sub_resource type="Resource" id="3"]
 script = ExtResource("2")
 stat = 2
-operation = 0
 value = 1.15
 
 [resource]
@@ -28,4 +24,4 @@ display_name = "Golden Club"
 description = "A legendary club gifted by the Golf Gods. Everything gets a little better."
 rarity = 2
 min_meta_level = 1
-effects = [SubResource("1"), SubResource("2"), SubResource("3")]
+effects = Array[ExtResource("2")]([SubResource("1"), SubResource("2"), SubResource("3")])
