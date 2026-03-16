@@ -1,7 +1,7 @@
 ## ProceduralHole — builds the full 3D hole scene from a HoleLayout.
 ##
 ## Responsibilities:
-##   - Fairway, green, and tee-box surface meshes
+##   - Terrain mesh (vertex-coloured heightmap) with collision
 ##   - Tree obstacles (StaticBody3D with collision so ball bounces off)
 ##   - Bunker visuals (sand-coloured disc; friction penalty is a future TODO)
 ##   - Cup + flag (owns the Area3D and emits ball_entered_cup)
@@ -15,10 +15,8 @@ extends Node3D
 
 signal ball_entered_cup
 
-const FAIRWAY_COLOR  := Color(0.20, 0.55, 0.15)
-const GREEN_COLOR    := Color(0.15, 0.65, 0.15)
-const TEE_COLOR      := Color(0.85, 0.85, 0.85)
-const ROUGH_EDGE_COLOR := Color(0.30, 0.48, 0.12)
+const TerrainMeshBuilderScript = preload("res://scripts/terrain/terrain_mesh_builder.gd")
+
 const TRUNK_COLOR    := Color(0.35, 0.20, 0.05)
 const FOLIAGE_COLOR  := Color(0.10, 0.38, 0.08)
 const SAND_COLOR     := Color(0.85, 0.78, 0.50)
@@ -50,17 +48,19 @@ func build(hole_layout: HoleGenerator.HoleLayout) -> void:
 
 
 func get_tee_world_position() -> Vector3:
-	# Tee is always at the hole's scene origin, 1 unit above ground for ball spawn
+	if layout.terrain_data:
+		var terrain_y: float = layout.terrain_data.get_height_at(0.0, 0.0)
+		return global_position + Vector3(0.0, terrain_y + 0.5, 0.0)
 	return global_position + Vector3(0.0, 1.0, 0.0)
 
 
 ## Returns true if `world_pos` is outside the playable area for this hole.
 func is_out_of_bounds(world_pos: Vector3) -> bool:
-	# Well below ground — definitely fallen through
-	if world_pos.y < -5.0:
+	# Well below lowest possible terrain
+	if world_pos.y < -10.0:
 		return true
 
-	# Transform world position into the ground box's local coordinate system
+	# Transform world position into the hole's rotated local coordinate system
 	var relative: Vector3 = world_pos - global_position - _bounds_center
 	var cos_a: float = cos(-_bounds_angle)
 	var sin_a: float = sin(-_bounds_angle)
@@ -71,73 +71,36 @@ func is_out_of_bounds(world_pos: Vector3) -> bool:
 
 
 # -------------------------------------------------------------------------
-# Terrain surfaces
+# Terrain mesh
 # -------------------------------------------------------------------------
 
 func _build_terrain() -> void:
-	var dir   := Vector3(sin(layout.hole_direction), 0.0, -cos(layout.hole_direction))
-	var cup_flat := Vector3(layout.cup_position.x, 0.0, layout.cup_position.z)
+	var dir := Vector3(sin(layout.hole_direction), 0.0, -cos(layout.hole_direction))
 
-	# Ground collision — wide flat box covering the whole hole so the ball never falls through.
-	# Extends well beyond the fairway on all sides to cover errant shots.
-	var ground_body := StaticBody3D.new()
-	var ground_col := CollisionShape3D.new()
-	var ground_shape := BoxShape3D.new()
-	var ground_width := layout.fairway_width + 60.0   # wide margin either side
-	var ground_len   := layout.hole_length + 40.0     # margin behind tee and past cup
-	ground_shape.size = Vector3(ground_width, 1.0, ground_len)
-	ground_col.shape = ground_shape
-	ground_body.add_child(ground_col)
-	# Centre the box under the hole midpoint; top face sits at y = 0.5
-	ground_body.position = dir * (layout.hole_length * 0.5) + Vector3(0.0, -0.5, 0.0)
-	ground_body.rotation.y = layout.hole_direction
-	add_child(ground_body)
-
-	# Store bounds for OOB detection
+	# OOB bounds (same dimensions as before)
+	var ground_width: float = layout.fairway_width + 60.0
+	var ground_len: float = layout.hole_length + 40.0
 	_bounds_center = dir * (layout.hole_length * 0.5)
 	_bounds_half_width = ground_width * 0.5
 	_bounds_half_length = ground_len * 0.5
 	_bounds_angle = layout.hole_direction
 
-	# Fairway — rectangle from tee to cup aligned with hole direction
-	_add_plane_mesh(
-		dir * (layout.hole_length * 0.5),   # midpoint
-		Vector2(layout.fairway_width, layout.hole_length),
-		layout.hole_direction,
-		FAIRWAY_COLOR,
-		0.01
-	)
+	if not layout.terrain_data:
+		return
 
-	# Green — disc around the cup
-	_add_disc_mesh(cup_flat, GREEN_RADIUS, GREEN_COLOR, 0.012)
+	# Build mesh + collision from heightmap
+	var result: Dictionary = TerrainMeshBuilderScript.build(layout.terrain_data)
 
-	# Tee box — small square at origin
-	_add_plane_mesh(Vector3.ZERO, Vector2(4.0, 4.0), 0.0, TEE_COLOR, 0.015)
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.mesh = result["mesh"] as ArrayMesh
+	mesh_instance.material_override = TerrainMeshBuilderScript.create_material()
+	add_child(mesh_instance)
 
-
-## Adds a PlaneMesh child at `center`, rotated `angle` around Y.
-func _add_plane_mesh(center: Vector3, size: Vector2, angle: float, color: Color, y_offset: float) -> void:
-	var mi := MeshInstance3D.new()
-	var mesh := PlaneMesh.new()
-	mesh.size = size
-	mi.mesh = mesh
-	mi.material_override = _flat_material(color)
-	mi.position = center + Vector3(0.0, y_offset, 0.0)
-	mi.rotation.y = angle
-	add_child(mi)
-
-
-## Adds a flat CylinderMesh disc (for circular areas like the green).
-func _add_disc_mesh(center: Vector3, radius: float, color: Color, y_offset: float) -> void:
-	var mi := MeshInstance3D.new()
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius
-	mesh.bottom_radius = radius
-	mesh.height = 0.02
-	mi.mesh = mesh
-	mi.material_override = _flat_material(color)
-	mi.position = center + Vector3(0.0, y_offset, 0.0)
-	add_child(mi)
+	var static_body := StaticBody3D.new()
+	var col_shape := CollisionShape3D.new()
+	col_shape.shape = result["shape"] as ConcavePolygonShape3D
+	static_body.add_child(col_shape)
+	add_child(static_body)
 
 
 # -------------------------------------------------------------------------
@@ -172,7 +135,7 @@ func _build_tree(obs: HoleGenerator.ObstacleDescriptor) -> void:
 	trunk_mesh.height        = obs.height * 0.40
 	trunk.mesh = trunk_mesh
 	trunk.material_override = _flat_material(TRUNK_COLOR)
-	trunk.position = Vector3(0.0, -obs.height * 0.30, 0.0)  # relative to body centre
+	trunk.position = Vector3(0.0, -obs.height * 0.30, 0.0)
 	body.add_child(trunk)
 
 	# Foliage visual (cone-like cylinder)
@@ -186,14 +149,18 @@ func _build_tree(obs: HoleGenerator.ObstacleDescriptor) -> void:
 	foliage.position = Vector3(0.0, obs.height * 0.08, 0.0)
 	body.add_child(foliage)
 
-	# Place body so its centre is at mid-height of the tree
-	body.position = obs.world_position + Vector3(0.0, obs.height * 0.5, 0.0)
+	# Place tree base at terrain height
+	var base_y: float = _terrain_height_at(obs.world_position.x, obs.world_position.z)
+	body.position = Vector3(
+		obs.world_position.x, base_y + obs.height * 0.5, obs.world_position.z
+	)
 	add_child(body)
 
 
 func _build_bunker(obs: HoleGenerator.ObstacleDescriptor) -> void:
+	var base_y: float = _terrain_height_at(obs.world_position.x, obs.world_position.z)
 	_add_disc_mesh(
-		Vector3(obs.world_position.x, 0.0, obs.world_position.z),
+		Vector3(obs.world_position.x, base_y, obs.world_position.z),
 		obs.radius,
 		SAND_COLOR,
 		0.013
@@ -262,6 +229,26 @@ func _on_body_entered_cup(body: Node3D) -> void:
 # -------------------------------------------------------------------------
 # Helpers
 # -------------------------------------------------------------------------
+
+## Query terrain height at a world XZ, with fallback for missing terrain data.
+func _terrain_height_at(world_x: float, world_z: float) -> float:
+	if layout.terrain_data:
+		return layout.terrain_data.get_height_at(world_x, world_z)
+	return 0.5
+
+
+## Adds a flat CylinderMesh disc (for bunkers).
+func _add_disc_mesh(center: Vector3, radius: float, color: Color, y_offset: float) -> void:
+	var mi := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = 0.02
+	mi.mesh = mesh
+	mi.material_override = _flat_material(color)
+	mi.position = center + Vector3(0.0, y_offset, 0.0)
+	add_child(mi)
+
 
 func _flat_material(color: Color) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()

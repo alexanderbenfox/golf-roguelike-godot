@@ -10,6 +10,8 @@ class_name HoleGenerator
 extends RefCounted
 
 const HoleGenConfigScript = preload("res://scripts/hole_gen_config.gd")
+const HeightmapGeneratorScript = preload("res://scripts/terrain/heightmap_generator.gd")
+const TerrainDataScript = preload("res://scripts/terrain/terrain_data.gd")
 
 
 # -------------------------------------------------------------------------
@@ -33,6 +35,7 @@ class HoleLayout:
 	var hole_length: float
 	var fairway_width: float
 	var obstacles: Array[ObstacleDescriptor]
+	var terrain_data: RefCounted  # TerrainData — heightmap + zones for this hole
 
 	func _init() -> void:
 		tee_position = Vector3.ZERO
@@ -83,6 +86,20 @@ static func generate(
 	layout.fairway_width = base_width * cfg.fairway_width_scale
 
 	_generate_obstacles(rng, layout, cfg)
+
+	# Generate terrain heightmap + zones
+	layout.terrain_data = HeightmapGeneratorScript.generate(
+		rng,
+		layout.tee_position,
+		layout.cup_position,
+		layout.hole_direction,
+		layout.hole_length,
+		layout.fairway_width,
+		0.5,   # ground_height — top of current floor box
+		2.0,   # cell_size
+		30.0,  # margin
+	)
+
 	return layout
 
 

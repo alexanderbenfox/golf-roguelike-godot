@@ -158,7 +158,7 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 	camera.camera_angle = atan2(-to_cup.x, -to_cup.z)
 	var my_player: PlayerState = \
 		game_state.players.get(network_manager.get_my_peer_id()) as PlayerState
-	ball.setup_physics_params(my_player)
+	ball.setup_physics_params(my_player, layout.terrain_data)
 
 	_show_hole_intro(_hole_number, _par)
 	turn_manager.start_hole(tee_position)
@@ -321,7 +321,10 @@ func _on_upgrade_selected(upgrade: UpgradeDefinition) -> void:
 		var player: PlayerState = game_state.players.get(my_id) as PlayerState
 		if player:
 			upgrade.apply(player)
-			ball.setup_physics_params(player)
+			var td: RefCounted = null
+			if current_hole and current_hole.layout:
+				td = current_hole.layout.terrain_data
+			ball.setup_physics_params(player, td)
 	MetaProgression.on_hole_complete()
 	course_manager.advance_to_next_hole()
 

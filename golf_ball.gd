@@ -59,7 +59,6 @@ const STOP_VELOCITY_THRESHOLD: float = 0.3
 # ---- Node references (set via @export so scene wiring is explicit) ---------
 
 @export var power_meter_ui: ProgressBar
-@export var floor_node: StaticBody3D
 
 @onready var trajectory_drawer: TrajectoryDrawer
 @onready var ball_trail: Node3D
@@ -97,7 +96,9 @@ func _ready() -> void:
 # Physics params — built from the Godot node properties + optional modifiers
 # -------------------------------------------------------------------------
 
-func setup_physics_params(player: PlayerState = null) -> void:
+func setup_physics_params(
+	player: PlayerState = null, terrain: RefCounted = null
+) -> void:
 	sim_params = PhysicsSimulator.PhysicsParams.new()
 	sim_params.mass = mass
 	sim_params.linear_damp = linear_damp
@@ -115,9 +116,8 @@ func setup_physics_params(player: PlayerState = null) -> void:
 		sim_params.ball_friction = physics_material_override.friction
 		sim_params.ball_bounce = physics_material_override.bounce
 
-	if floor_node and floor_node.physics_material_override:
-		sim_params.ground_friction = floor_node.physics_material_override.friction
-		sim_params.ground_bounce = floor_node.physics_material_override.bounce
+	# Terrain heightmap (null = flat ground at ground_height)
+	sim_params.terrain = terrain
 
 	# Apply roguelike modifiers if a PlayerState is provided
 	if player:
@@ -250,6 +250,9 @@ func _simulate_step(delta: float) -> void:
 		if normal.y < 0.7:
 			sim_state.velocity = sim_state.velocity.bounce(normal) * 0.6
 			_spawn_impact_flash(collision.get_position(), 0.6)
+
+	# Keep sim state in sync with actual node position after collision resolution
+	sim_state.position = global_position
 
 	# Out-of-bounds check using the current hole's terrain bounds
 	if not _bounds_check.is_null() and _bounds_check.call(global_position):

@@ -26,6 +26,9 @@ class PhysicsParams:
 	var ground_bounce: float
 	var gravity_scale: float
 	var ground_height: float
+	## TerrainData for terrain-aware physics. Null = flat ground.
+	var terrain: RefCounted  # TerrainData
+	var wind: Vector3
 
 	func _init() -> void:
 		mass = 0.045
@@ -38,6 +41,8 @@ class PhysicsParams:
 		ground_bounce = 0.3
 		gravity_scale = 1.0
 		ground_height = 0.0
+		terrain = null
+		wind = Vector3.ZERO
 
 # Step the simulation forward by delta time
 static func simulate_step(state: SimulationState, params: PhysicsParams, delta: float) -> SimulationState:
@@ -54,9 +59,16 @@ static func simulate_step(state: SimulationState, params: PhysicsParams, delta: 
 
 	new_state.position += new_state.velocity * delta
 
-	if new_state.position.y <= params.ground_height + params.ball_radius:
+	# Terrain-aware ground height (falls back to flat ground_height when no terrain)
+	var ground_h: float = params.ground_height
+	if params.terrain:
+		ground_h = params.terrain.get_height_at(
+			new_state.position.x, new_state.position.z
+		)
+
+	if new_state.position.y <= ground_h + params.ball_radius:
 		new_state.is_on_ground = true
-		new_state.position.y = params.ground_height + params.ball_radius
+		new_state.position.y = ground_h + params.ball_radius
 
 		if new_state.velocity.y < 0.0:
 			var combined_bounce := params.ball_bounce * params.ground_bounce
@@ -65,7 +77,7 @@ static func simulate_step(state: SimulationState, params: PhysicsParams, delta: 
 			if abs(new_state.velocity.y) < 0.5:
 				new_state.velocity.y = 0.0
 
-		if new_state.position.y <= params.ground_height + params.ball_radius + 0.01:
+		if new_state.position.y <= ground_h + params.ball_radius + 0.01:
 			var horizontal_velocity := Vector3(new_state.velocity.x, 0.0, new_state.velocity.z)
 
 			if horizontal_velocity.length() > 0.01:
