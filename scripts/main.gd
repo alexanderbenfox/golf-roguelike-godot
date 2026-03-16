@@ -25,6 +25,7 @@ const GolferStatsScript = preload("res://resources/golfer_stats.gd")
 var game_state: GameStateScript
 var current_hole: ProceduralHole
 var _upgrade_screen: UpgradeScreen
+var _distance_label: Label
 
 
 func _ready() -> void:
@@ -116,6 +117,7 @@ func _on_ball_entered_cup() -> void:
 
 
 func _on_ball_at_rest(peer_id: int) -> void:
+	_show_distance_to_hole()
 	turn_manager.notify_ball_at_rest(peer_id)
 
 
@@ -123,6 +125,38 @@ func _on_ball_out_of_bounds(_peer_id: int) -> void:
 	# Ball has already been teleported back to last_shot_position by golf_ball.gd.
 	# The turn stays active — the player re-aims and shoots from there.
 	_show_oob_message()
+
+
+func _show_distance_to_hole() -> void:
+	_hide_distance_label()
+	if not current_hole:
+		return
+	var ball_pos: Vector3 = ball.global_position
+	var cup_pos: Vector3 = current_hole.layout.cup_position
+	var dist: float = Vector3(
+		ball_pos.x - cup_pos.x, 0.0, ball_pos.z - cup_pos.z
+	).length()
+	# Don't show if already in the cup or very close
+	if dist < 1.0:
+		return
+	_distance_label = Label.new()
+	_distance_label.text = "%.1fm to pin" % dist
+	_distance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_distance_label.add_theme_font_size_override("font_size", 24)
+	_distance_label.add_theme_color_override(
+		"font_color", Color(1.0, 1.0, 1.0, 0.9)
+	)
+	_distance_label.set_anchors_and_offsets_preset(
+		Control.PRESET_CENTER_BOTTOM
+	)
+	_distance_label.offset_top = -60.0
+	$UICanvas.add_child(_distance_label)
+
+
+func _hide_distance_label() -> void:
+	if _distance_label and is_instance_valid(_distance_label):
+		_distance_label.queue_free()
+		_distance_label = null
 
 
 func _show_oob_message() -> void:
@@ -195,6 +229,7 @@ func _on_turn_started(peer_id: int) -> void:
 # -------------------------------------------------------------------------
 
 func _on_shot_ready(direction: Vector3, power: float) -> void:
+	_hide_distance_label()
 	scoring_manager.add_stroke()
 	network_manager.submit_shot(direction, power)
 

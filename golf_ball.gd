@@ -216,6 +216,8 @@ func play_shot(direction: Vector3, power: float) -> void:
 	sim_state = PhysicsSimulator.SimulationState.new(global_position, initial_velocity)
 	is_simulating = true
 	freeze = true
+	if camera and camera.has_method("start_follow_shot"):
+		camera.start_follow_shot()
 
 
 # -------------------------------------------------------------------------
@@ -242,17 +244,25 @@ func _simulate_step(delta: float) -> void:
 		_handle_out_of_bounds()
 		return
 
+	# Feed velocity to the follow camera each frame
+	if camera and camera.has_method("set_follow_velocity"):
+		camera.set_follow_velocity(sim_state.velocity)
+
 	ball_moved.emit(global_position)
 
 	if PhysicsSimulator.is_stopped(sim_state, STOP_VELOCITY_THRESHOLD):
 		is_simulating = false
 		freeze = false
+		if camera and camera.has_method("stop_follow_shot"):
+			camera.stop_follow_shot()
 		ball_at_rest.emit(peer_id)
 
 
 func _handle_out_of_bounds() -> void:
 	is_simulating = false
 	freeze = false
+	if camera and camera.has_method("stop_follow_shot"):
+		camera.stop_follow_shot()
 	global_position = last_shot_position
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
