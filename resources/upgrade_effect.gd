@@ -10,6 +10,8 @@ enum Stat {
 	POWER,    ## Scales how far the ball travels per shot.
 	FRICTION, ## Scales ground friction (higher = ball stops sooner).
 	BOUNCE,   ## Scales how much the ball bounces off surfaces.
+	ACCURACY, ## Scales shot accuracy (higher = tighter spread).
+	GRAVITY,  ## Scales gravity on the ball (lower = floatier, longer hang time).
 }
 
 enum Operation {

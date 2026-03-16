@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dhymcyyachjoi" path="res://scripts/main.gd" id="1_i5arm"]
 [ext_resource type="PackedScene" uid="uid://u2aftfk4jscx" path="res://power_meter.tscn" id="1_noarx"]
 [ext_resource type="PackedScene" uid="uid://ctonnkhe8q38j" path="res://golf_ball.tscn" id="2_a0tk4"]
+[ext_resource type="Resource" path="res://resources/default_golfer_stats.tres" id="2_cdqbm"]
 [ext_resource type="Script" uid="uid://qjo20cg20csh" path="res://camera_3d.gd" id="3_a0tk4"]
 [ext_resource type="PackedScene" uid="uid://vbfwa6j6ip78" path="res://scenes/ui/score_ui.tscn" id="3_i5arm"]
 [ext_resource type="PackedScene" uid="uid://bkq6fyiy48t8k" path="res://scenes/ui/hole_complete_ui.tscn" id="4_jsk3o"]
@@ -29,6 +30,7 @@ size = Vector3(100, 1, 100)
 
 [node name="Main" type="Node3D" unique_id=663232325]
 script = ExtResource("1_i5arm")
+golfer_stats = ExtResource("2_cdqbm")
 
 [node name="UICanvas" parent="." unique_id=583257842 instance=ExtResource("1_noarx")]
 
@@ -49,11 +51,11 @@ angular_damp = 2.5
 power_meter_ui = NodePath("../../UICanvas/ProgressBar")
 floor_node = NodePath("../../Floor/StaticBody3D")
 
-[node name="Camera3D" type="Camera3D" parent="." unique_id=1735598864 node_paths=PackedStringArray("followTarget")]
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1735598864 node_paths=PackedStringArray("follow_target")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5283225, 2.6659837)
 script = ExtResource("3_a0tk4")
-followTarget = NodePath("../GolfBall/RigidBody3D")
-maxHeight = 8.0
+follow_target = NodePath("../GolfBall/RigidBody3D")
+max_height = 8.0
 
 [node name="Floor" type="Node3D" parent="." unique_id=2055342503]
 

@@ -1,155 +1,258 @@
+## TrajectoryDrawer — renders a flat arrow ribbon, landing halo, and accuracy
+## variance cone using ImmediateMesh.
 class_name TrajectoryDrawer
 extends Node3D
 
-var line_mesh: ImmediateMesh
-var mesh_instance: MeshInstance3D
-var material: StandardMaterial3D
+const ARROW_HALF_WIDTH: float = 0.25
+const ARROW_HEAD_HALF_WIDTH: float = 0.55
+const HALO_INNER_RADIUS: float = 1.0
+const HALO_OUTER_RADIUS: float = 1.4
+const HALO_SEGMENTS: int = 32
+const MAX_SPREAD_RADIANS: float = 0.10
+const VARIANCE_ARC_SEGMENTS: int = 16
+
+var _mesh: ImmediateMesh
+var _mesh_instance: MeshInstance3D
+var _arrow_material: StandardMaterial3D
+var _halo_material: StandardMaterial3D
+var _variance_material: StandardMaterial3D
+
 
 func _ready() -> void:
-	create_line()
+	_setup_materials()
+	_setup_mesh()
 	top_level = true
 
-func create_line() -> void:
-	mesh_instance = MeshInstance3D.new()
-	add_child(mesh_instance)
 
-	line_mesh = ImmediateMesh.new()
-	mesh_instance.mesh = line_mesh
+func _setup_materials() -> void:
+	_arrow_material = StandardMaterial3D.new()
+	_arrow_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_arrow_material.albedo_color = Color(1.0, 1.0, 0.0, 0.8)
+	_arrow_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_arrow_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 
-	material = StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = Color(1.0, 1.0, 0.0, 0.8)
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mesh_instance.material_override = material
+	_halo_material = StandardMaterial3D.new()
+	_halo_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_halo_material.albedo_color = Color(1.0, 1.0, 1.0, 0.45)
+	_halo_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_halo_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 
+	_variance_material = StandardMaterial3D.new()
+	_variance_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_variance_material.albedo_color = Color(1.0, 1.0, 0.0, 0.2)
+	_variance_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_variance_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+
+func _setup_mesh() -> void:
+	_mesh_instance = MeshInstance3D.new()
+	add_child(_mesh_instance)
+	_mesh = ImmediateMesh.new()
+	_mesh_instance.mesh = _mesh
 	hide()
+
 
 func show_trajectory() -> void:
 	show()
 
+
 func hide_trajectory() -> void:
 	hide()
 
-func draw_arrow(start_pos: Vector3, direction: Vector3, power: float, max_power: float) -> void:
-	line_mesh.clear_surfaces()
 
-	if direction == Vector3.ZERO:
-		return
+# -------------------------------------------------------------------------
+# Main entry point — called every frame while aiming
+# -------------------------------------------------------------------------
 
-	update_color(power, max_power)
+func draw_trajectory(
+	params: PhysicsSimulator.PhysicsParams,
+	impulse: Vector3,
+	accuracy: float = 1.0,
+) -> void:
+	_mesh.clear_surfaces()
 
-	var trajectory_length: float = power * 0.5
-	var end_point := direction * trajectory_length
-
-	line_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-	line_mesh.surface_add_vertex(start_pos)
-	line_mesh.surface_add_vertex(end_point)
-	line_mesh.surface_end()
-
-	var arrow_size := 0.3
-	var perpendicular := direction.cross(Vector3.UP).normalized()
-	line_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-	line_mesh.surface_add_vertex(end_point)
-	line_mesh.surface_add_vertex(end_point - direction * arrow_size + perpendicular * arrow_size * 0.5)
-	line_mesh.surface_add_vertex(end_point)
-	line_mesh.surface_add_vertex(end_point - direction * arrow_size - perpendicular * arrow_size * 0.5)
-	line_mesh.surface_end()
-
-func draw_trajectory(params: PhysicsSimulator.PhysicsParams, impulse: Vector3) -> void:
-	line_mesh.clear_surfaces()
-
-	if impulse == Vector3.ZERO:
+	if impulse.length_squared() < 0.001:
 		return
 
 	var initial_velocity: Vector3 = impulse / params.mass
-
-	update_color_from_impulse(impulse.length())
+	_update_arrow_color(impulse.length())
 
 	var positions: Array[Vector3] = PhysicsSimulator.simulate_trajectory(
-		initial_velocity,
-		params,
-		Vector3.ZERO,
-		0.05,
-		10.0,
-		0.1
+		initial_velocity, params, Vector3.ZERO, 0.05, 10.0, 0.1
 	)
 
-	if positions.size() > 1:
-		line_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
-		for pos: Vector3 in positions:
-			line_mesh.surface_add_vertex(pos)
-		line_mesh.surface_end()
-
-func draw_curved_trajectory_with_bounce(
-	start_pos: Vector3,
-	impulse: Vector3,
-	ball_mass: float,
-	bounce: float = 0.5,
-	gravity_scale: float = 1.0,
-	ground_height: float = 0.0
-) -> void:
-	line_mesh.clear_surfaces()
-
-	if impulse == Vector3.ZERO:
+	if positions.size() < 2:
 		return
 
-	var initial_velocity: Vector3 = impulse / ball_mass
-	var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
-	var gravity_vector := Vector3(0.0, -gravity * gravity_scale, 0.0)
+	var landing_pos: Vector3 = _find_landing_point(positions, params.ground_height)
 
-	var time_step := 0.05
-	var max_time := 5.0
-	var num_points: int = int(max_time / time_step)
+	_draw_ribbon(positions)
+	_draw_halo(landing_pos, params.ground_height)
 
-	line_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+	# Draw accuracy variance cone if not perfectly accurate
+	var spread: float = (1.0 - clampf(accuracy, 0.0, 1.0)) * MAX_SPREAD_RADIANS
+	if spread > 0.001:
+		_draw_variance_cone(impulse, params, spread)
 
-	var current_pos: Vector3 = start_pos
-	var current_velocity: Vector3 = initial_velocity
-	var bounced: bool = false
 
-	for _i: int in range(num_points):
-		line_mesh.surface_add_vertex(current_pos)
+# -------------------------------------------------------------------------
+# Landing point detection
+# -------------------------------------------------------------------------
 
-		current_velocity += gravity_vector * time_step
-		current_pos += current_velocity * time_step
+func _find_landing_point(positions: Array[Vector3], ground_height: float) -> Vector3:
+	for i: int in range(1, positions.size()):
+		if positions[i].y <= ground_height + 0.1:
+			var dy: float = positions[i].y - positions[i - 1].y
+			if absf(dy) > 0.001:
+				var t: float = clampf((ground_height - positions[i - 1].y) / dy, 0.0, 1.0)
+				return positions[i - 1].lerp(positions[i], t)
+			return positions[i]
+	return positions[positions.size() - 1]
 
-		if current_pos.y <= ground_height and not bounced:
-			current_velocity.y = -current_velocity.y * bounce
-			current_velocity.x *= 0.8
-			current_velocity.z *= 0.8
-			current_pos.y = ground_height
-			bounced = true
-		elif current_pos.y <= ground_height and bounced:
-			break
 
-		if current_pos.length() > 100.0:
-			break
+# -------------------------------------------------------------------------
+# Flat arrow ribbon (triangle strip) with arrowhead
+# -------------------------------------------------------------------------
 
-	line_mesh.surface_end()
+func _draw_ribbon(positions: Array[Vector3]) -> void:
+	var count: int = positions.size()
+	if count < 2:
+		return
 
-func interpolate_ground_hit(pos1: Vector3, pos2: Vector3, ground_height: float) -> Vector3:
-	if pos2.y >= ground_height:
-		return pos2
+	# Reserve last 2 points for arrowhead base/tip
+	var ribbon_end: int = maxi(count - 2, 2)
 
-	var t: float = (ground_height - pos1.y) / (pos2.y - pos1.y)
-	return pos1.lerp(pos2, t)
+	_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP, _arrow_material)
 
-func update_color(power: float, max_power: float) -> void:
-	var color: Color
-	if power > max_power * 0.66:
-		color = Color(1.0, 0.0, 0.0)
-	elif power > max_power * 0.33:
-		color = Color(1.0, 1.0, 0.0)
-	else:
-		color = Color(0.0, 1.0, 0.0)
-	material.albedo_color = color
+	for i: int in range(ribbon_end):
+		var pos: Vector3 = positions[i]
+		var forward: Vector3
+		if i < ribbon_end - 1:
+			forward = (positions[i + 1] - pos).normalized()
+		else:
+			forward = (pos - positions[i - 1]).normalized()
 
-func update_color_from_impulse(impulse_magnitude: float) -> void:
-	var normalized: float = clamp(impulse_magnitude / 20.0, 0.0, 1.0)
+		var right: Vector3 = forward.cross(Vector3.UP).normalized()
+		if right.length_squared() < 0.01:
+			right = Vector3.RIGHT
 
+		# Slight taper toward the tip
+		var t: float = float(i) / float(maxi(ribbon_end - 1, 1))
+		var half_w: float = ARROW_HALF_WIDTH * lerpf(1.0, 0.6, t)
+
+		var left_v: Vector3 = pos + right * half_w
+		var right_v: Vector3 = pos - right * half_w
+		left_v.y = maxf(left_v.y, 0.52)
+		right_v.y = maxf(right_v.y, 0.52)
+
+		_mesh.surface_add_vertex(left_v)
+		_mesh.surface_add_vertex(right_v)
+
+	_mesh.surface_end()
+
+	# Arrowhead triangle
+	if count >= 3:
+		var tip: Vector3 = positions[count - 1]
+		var base_idx: int = mini(ribbon_end, count - 2)
+		var base: Vector3 = positions[base_idx]
+		var fwd: Vector3 = (tip - base).normalized()
+		var right: Vector3 = fwd.cross(Vector3.UP).normalized()
+		if right.length_squared() < 0.01:
+			right = Vector3.RIGHT
+
+		tip.y = maxf(tip.y, 0.52)
+		var left_wing: Vector3 = base + right * ARROW_HEAD_HALF_WIDTH
+		var right_wing: Vector3 = base - right * ARROW_HEAD_HALF_WIDTH
+		left_wing.y = maxf(left_wing.y, 0.52)
+		right_wing.y = maxf(right_wing.y, 0.52)
+
+		_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES, _arrow_material)
+		_mesh.surface_add_vertex(left_wing)
+		_mesh.surface_add_vertex(tip)
+		_mesh.surface_add_vertex(right_wing)
+		_mesh.surface_end()
+
+
+# -------------------------------------------------------------------------
+# Landing halo — ring at the first ground-hit point
+# -------------------------------------------------------------------------
+
+func _draw_halo(center: Vector3, ground_height: float) -> void:
+	var y: float = ground_height + 0.03
+
+	_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP, _halo_material)
+
+	for i: int in range(HALO_SEGMENTS + 1):
+		var angle: float = float(i) / float(HALO_SEGMENTS) * TAU
+		var ca: float = cos(angle)
+		var sa: float = sin(angle)
+
+		_mesh.surface_add_vertex(Vector3(
+			center.x + ca * HALO_OUTER_RADIUS, y, center.z + sa * HALO_OUTER_RADIUS
+		))
+		_mesh.surface_add_vertex(Vector3(
+			center.x + ca * HALO_INNER_RADIUS, y, center.z + sa * HALO_INNER_RADIUS
+		))
+
+	_mesh.surface_end()
+
+
+# -------------------------------------------------------------------------
+# Accuracy variance — edge trajectories and landing arc
+# -------------------------------------------------------------------------
+
+func _draw_variance_cone(impulse: Vector3, params: PhysicsSimulator.PhysicsParams, spread: float) -> void:
+	var left_impulse: Vector3 = impulse.rotated(Vector3.UP, spread)
+	var right_impulse: Vector3 = impulse.rotated(Vector3.UP, -spread)
+
+	var left_vel: Vector3 = left_impulse / params.mass
+	var right_vel: Vector3 = right_impulse / params.mass
+
+	var left_pos: Array[Vector3] = PhysicsSimulator.simulate_trajectory(
+		left_vel, params, Vector3.ZERO, 0.05, 10.0, 0.1
+	)
+	var right_pos: Array[Vector3] = PhysicsSimulator.simulate_trajectory(
+		right_vel, params, Vector3.ZERO, 0.05, 10.0, 0.1
+	)
+
+	# Left edge line
+	if left_pos.size() > 1:
+		_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, _variance_material)
+		for pos: Vector3 in left_pos:
+			_mesh.surface_add_vertex(Vector3(pos.x, maxf(pos.y, 0.52), pos.z))
+		_mesh.surface_end()
+
+	# Right edge line
+	if right_pos.size() > 1:
+		_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, _variance_material)
+		for pos: Vector3 in right_pos:
+			_mesh.surface_add_vertex(Vector3(pos.x, maxf(pos.y, 0.52), pos.z))
+		_mesh.surface_end()
+
+	# Arc connecting the two landing points
+	var left_landing: Vector3 = _find_landing_point(left_pos, params.ground_height)
+	var right_landing: Vector3 = _find_landing_point(right_pos, params.ground_height)
+
+	if left_landing.distance_to(right_landing) > 0.1:
+		var arc_y: float = params.ground_height + 0.03
+		_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, _variance_material)
+		for i: int in range(VARIANCE_ARC_SEGMENTS + 1):
+			var t: float = float(i) / float(VARIANCE_ARC_SEGMENTS)
+			var p: Vector3 = left_landing.lerp(right_landing, t)
+			p.y = arc_y
+			_mesh.surface_add_vertex(p)
+		_mesh.surface_end()
+
+
+# -------------------------------------------------------------------------
+# Color helpers
+# -------------------------------------------------------------------------
+
+func _update_arrow_color(impulse_magnitude: float) -> void:
+	var normalized: float = clampf(impulse_magnitude / 20.0, 0.0, 1.0)
 	if normalized < 0.33:
-		material.albedo_color = Color(0.0, 1.0, 0.0, 0.8)
+		_arrow_material.albedo_color = Color(0.0, 1.0, 0.0, 0.8)
 	elif normalized < 0.66:
-		material.albedo_color = Color(1.0, 1.0, 0.0, 0.8)
+		_arrow_material.albedo_color = Color(1.0, 1.0, 0.0, 0.8)
 	else:
-		material.albedo_color = Color(1.0, 0.0, 0.0, 0.8)
+		_arrow_material.albedo_color = Color(1.0, 0.0, 0.0, 0.8)

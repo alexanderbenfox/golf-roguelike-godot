@@ -8,6 +8,10 @@ const GameStateScript = preload("res://state/game_state.gd")
 const PlayerStateScript = preload("res://state/player_state.gd")
 const ProceduralHoleScript = preload("res://scripts/procedural_hole.gd")
 const UpgradeScreenScript = preload("res://scripts/ui/upgrade_screen.gd")
+const GolferStatsScript = preload("res://resources/golfer_stats.gd")
+
+## Starting stats for the golfer — edit in Inspector to tune defaults.
+@export var golfer_stats: Resource  # GolferStats
 
 @onready var scoring_manager: ScoringManager = $ScoringManager
 @onready var score_ui: Control = $UICanvas/ScoreUI
@@ -59,6 +63,8 @@ func _start_singleplayer() -> void:
 	var player: PlayerState = PlayerStateScript.new()
 	player.peer_id = local_id
 	player.display_name = "Player 1"
+	if golfer_stats:
+		(golfer_stats as GolferStatsScript).apply_to(player)
 	game_state.players[local_id] = player
 	game_state.turn_order = [local_id]
 

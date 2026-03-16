@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" format=3 uid="uid://bla40gb1alvk6"]
+
+[ext_resource type="Script" uid="uid://cksdm8u046p4e" path="res://resources/upgrade_effect.gd" id="1_euyxx"]
+[ext_resource type="Script" uid="uid://clgofk0vig4am" path="res://resources/upgrade_definition.gd" id="1_s30r8"]
+
+[sub_resource type="Resource" id="Resource_6s5w1"]
+script = ExtResource("1_euyxx")
+stat = 3
+value = 1.5
+metadata/_custom_type_script = "uid://cksdm8u046p4e"
+
+[sub_resource type="Resource" id="Resource_apdhp"]
+script = ExtResource("1_euyxx")
+value = 0.5
+metadata/_custom_type_script = "uid://cksdm8u046p4e"
+
+[resource]
+script = ExtResource("1_s30r8")
+id = "straight_shot"
+display_name = "Straight Shot"
+description = "Tour Edge Exotics E725 driver prioritizes straight shot performance over power. +50% accuracy/-25% power"
+rarity = 2
+effects = [SubResource("Resource_6s5w1"), SubResource("Resource_apdhp")]
+metadata/_custom_type_script = "uid://clgofk0vig4am"

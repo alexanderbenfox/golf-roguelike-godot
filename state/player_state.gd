@@ -16,6 +16,8 @@ var is_hole_complete: bool = false
 var power_multiplier: float = 1.0
 var friction_modifier: float = 1.0
 var bounce_modifier: float = 1.0
+var accuracy: float = 0.7
+var gravity_scale: float = 1.0
 
 # IDs of upgrades collected this run (for display / serialisation)
 var applied_upgrade_ids: Array[String] = []
@@ -38,6 +40,8 @@ func to_dict() -> Dictionary:
 		"power_multiplier": power_multiplier,
 		"friction_modifier": friction_modifier,
 		"bounce_modifier": bounce_modifier,
+		"accuracy": accuracy,
+		"gravity_scale": gravity_scale,
 		"applied_upgrade_ids": applied_upgrade_ids,
 	}
 
@@ -54,5 +58,7 @@ static func from_dict(d: Dictionary) -> PlayerState:
 	ps.power_multiplier = d["power_multiplier"]
 	ps.friction_modifier = d["friction_modifier"]
 	ps.bounce_modifier = d["bounce_modifier"]
+	ps.accuracy = d.get("accuracy", 0.7)
+	ps.gravity_scale = d.get("gravity_scale", 1.0)
 	ps.applied_upgrade_ids.assign(d.get("applied_upgrade_ids", []))
 	return ps

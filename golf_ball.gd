@@ -50,6 +50,7 @@ var is_simulating: bool = false
 var sim_state: PhysicsSimulator.SimulationState
 var sim_params: PhysicsSimulator.PhysicsParams
 var _power_multiplier: float = 1.0
+var _accuracy: float = 0.7
 var last_shot_position: Vector3 = Vector3.ZERO
 var _bounds_check: Callable
 
@@ -115,7 +116,9 @@ func setup_physics_params(player: PlayerState = null) -> void:
 	if player:
 		sim_params.ball_bounce *= player.bounce_modifier
 		sim_params.ground_friction *= player.friction_modifier
+		sim_params.gravity_scale *= player.gravity_scale
 		_power_multiplier = player.power_multiplier
+		_accuracy = player.accuracy
 
 
 # -------------------------------------------------------------------------
@@ -145,7 +148,9 @@ func _process(delta: float) -> void:
 	if is_aiming:
 		_update_aim(delta)
 		trajectory_drawer.global_position = global_position
-		trajectory_drawer.draw_trajectory(sim_params, aim_direction * aim_power)
+		trajectory_drawer.draw_trajectory(
+			sim_params, aim_direction * aim_power * _power_multiplier, _accuracy
+		)
 
 		if Input.is_action_just_released("golf_shoot"):
 			_confirm_shot()
@@ -158,13 +163,14 @@ func _start_aiming() -> void:
 	if power_meter_ui:
 		power_meter_ui.show_meter()
 	trajectory_drawer.show_trajectory()
+	if camera and camera.has_method("set_aiming"):
+		camera.set_aiming(true)
 
 
 func _update_aim(delta: float) -> void:
-	if camera:
-		aim_direction = -camera.global_transform.basis.z
-		aim_direction.y = 0.5
-		aim_direction = aim_direction.normalized()
+	if camera and camera.has_method("get_aim_forward"):
+		var forward: Vector3 = camera.get_aim_forward()
+		aim_direction = Vector3(forward.x, 0.5, forward.z).normalized()
 
 	aim_power = clamp(aim_power + delta * s_charge_rate, 0.0, s_max_power)
 
@@ -175,6 +181,13 @@ func _update_aim(delta: float) -> void:
 func _confirm_shot() -> void:
 	var direction := aim_direction
 	var power := aim_power
+
+	# Apply accuracy variance — random horizontal spread before sending to network
+	var spread: float = (1.0 - _accuracy) * 0.10
+	if spread > 0.001:
+		var angle_offset: float = randf_range(-spread, spread)
+		direction = direction.rotated(Vector3.UP, angle_offset)
+
 	_cancel_aim()
 	if direction != Vector3.ZERO:
 		shot_ready.emit(direction, power)
@@ -187,6 +200,8 @@ func _cancel_aim() -> void:
 	if power_meter_ui:
 		power_meter_ui.hide_meter()
 	trajectory_drawer.hide_trajectory()
+	if camera and camera.has_method("set_aiming"):
+		camera.set_aiming(false)
 
 
 # -------------------------------------------------------------------------

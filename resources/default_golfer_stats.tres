@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="GolferStats" format=3 uid="uid://5wmwcf0vj3k2"]
+
+[ext_resource type="Script" uid="uid://nb5i5fqv6mmo" path="res://resources/golfer_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+gravity_scale = 1.5

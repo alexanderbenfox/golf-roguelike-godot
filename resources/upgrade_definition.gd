@@ -24,16 +24,12 @@ enum Rarity {
 ## Minimum meta-progression level required for this upgrade to appear in the pool.
 ## Level 0 = always available. See MetaProgression for thresholds.
 @export var min_meta_level: int = 0
-## Each element must be an UpgradeEffect resource.
-@export var effects: Array = []
+@export var effects: Array[UpgradeEffect] = []
 
 
 ## Applies all effects to the given PlayerState and records the upgrade id.
 func apply(player: PlayerState) -> void:
-	for effect_res in effects:
-		var effect := effect_res as UpgradeEffect
-		if effect == null:
-			continue
+	for effect: UpgradeEffect in effects:
 		match effect.stat:
 			UpgradeEffect.Stat.POWER:
 				if effect.operation == UpgradeEffect.Operation.MULTIPLY:
@@ -50,16 +46,24 @@ func apply(player: PlayerState) -> void:
 					player.bounce_modifier *= effect.value
 				else:
 					player.bounce_modifier += effect.value
+			UpgradeEffect.Stat.ACCURACY:
+				if effect.operation == UpgradeEffect.Operation.MULTIPLY:
+					player.accuracy *= effect.value
+				else:
+					player.accuracy += effect.value
+				player.accuracy = clampf(player.accuracy, 0.0, 1.0)
+			UpgradeEffect.Stat.GRAVITY:
+				if effect.operation == UpgradeEffect.Operation.MULTIPLY:
+					player.gravity_scale *= effect.value
+				else:
+					player.gravity_scale += effect.value
 	player.applied_upgrade_ids.append(id)
 
 
 ## Returns a short human-readable string summarising all stat changes (shown on the card).
 func get_effects_summary() -> String:
 	var parts: Array[String] = []
-	for effect_res in effects:
-		var effect := effect_res as UpgradeEffect
-		if effect == null:
-			continue
+	for effect: UpgradeEffect in effects:
 		var stat_name: String = (UpgradeEffect.Stat.keys()[effect.stat] as String).capitalize()
 		if effect.operation == UpgradeEffect.Operation.MULTIPLY:
 			var pct := int(round((effect.value - 1.0) * 100.0))
