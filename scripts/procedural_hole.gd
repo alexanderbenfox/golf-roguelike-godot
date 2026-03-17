@@ -158,12 +158,19 @@ func _build_tree(obs: HoleGenerator.ObstacleDescriptor) -> void:
 
 
 func _build_bunker(obs: HoleGenerator.ObstacleDescriptor) -> void:
-	var base_y: float = _terrain_height_at(obs.world_position.x, obs.world_position.z)
+	# Sample terrain height at center + edge points so the disc sits above the
+	# highest point within its footprint (avoids clipping on sloped terrain).
+	var cx: float = obs.world_position.x
+	var cz: float = obs.world_position.z
+	var r: float = obs.radius
+	var base_y: float = _terrain_height_at(cx, cz)
+	for offset: Vector2 in [Vector2(r, 0), Vector2(-r, 0), Vector2(0, r), Vector2(0, -r)]:
+		base_y = maxf(base_y, _terrain_height_at(cx + offset.x, cz + offset.y))
 	_add_disc_mesh(
-		Vector3(obs.world_position.x, base_y, obs.world_position.z),
+		Vector3(cx, base_y, cz),
 		obs.radius,
 		SAND_COLOR,
-		0.013
+		0.05
 	)
 
 

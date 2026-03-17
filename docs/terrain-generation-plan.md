@@ -179,6 +179,22 @@ ground_normal = terrain.get_normal_at(pos.x, pos.z)          # instead of Vector
 - BUNKER: heavy friction (~3x)
 - GREEN: reduced friction (~0.7x)
 
+`TerrainData` already stores per-zone friction values and exposes `get_friction_at(x, z)`.
+Currently `PhysicsSimulator.simulate_step()` uses a single `params.ground_friction` for the
+entire simulation. Phase 4 must change the ground friction step to query the terrain each frame:
+
+```gdscript
+# In simulate_step(), replace the fixed combined_friction with a per-position lookup:
+var zone_friction: float = params.ground_friction
+if params.terrain:
+    zone_friction = params.terrain.get_friction_at(new_state.position.x, new_state.position.z)
+var combined_friction := params.ball_friction * zone_friction
+```
+
+This will resolve the current bug where the ball rolls at the same speed everywhere regardless
+of zone — in particular, off-fairway/rough areas feel too slippery because no extra friction
+is applied.
+
 ### Wind
 - Applied to velocity each frame while ball is airborne
 - `velocity += wind * drag_coefficient * delta`
