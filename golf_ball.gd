@@ -68,6 +68,11 @@ const STOP_VELOCITY_THRESHOLD: float = 0.3
 # Set by TurnManager via set_turn_active().
 var _turn_active: bool = false
 
+# ---- Ready indicator -------------------------------------------------------
+var _ready_ring: Decal
+var _ready_ring_tween: Tween
+var _shadow_decal: Decal
+
 
 # -------------------------------------------------------------------------
 # Lifecycle
@@ -86,6 +91,7 @@ func _ready() -> void:
 	add_child(ball_trail)
 
 	_create_shadow_decal()
+	_create_ready_ring()
 
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 
@@ -148,7 +154,17 @@ func set_turn_active(active: bool) -> void:
 # -------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
-	if is_local_player and _turn_active and is_at_rest() and not is_aiming:
+	# Keep top-level decals following ball position without inheriting rotation
+	var decal_pos: Vector3 = global_position + Vector3(0.0, -0.1, 0.0)
+	if _shadow_decal:
+		_shadow_decal.global_position = decal_pos
+	if _ready_ring:
+		_ready_ring.global_position = decal_pos
+
+	var actionable: bool = is_local_player and _turn_active and is_at_rest() and not is_aiming
+	_update_ready_ring(actionable)
+
+	if actionable:
 		if Input.is_action_just_pressed("golf_shoot"):
 			_start_aiming()
 
@@ -292,6 +308,57 @@ func _handle_out_of_bounds() -> void:
 # Helpers
 # -------------------------------------------------------------------------
 
+func _create_ready_ring() -> void:
+	_ready_ring = Decal.new()
+	_ready_ring.size = Vector3(2.0, 20.0, 2.0)
+	_ready_ring.position = Vector3(0.0, -0.1, 0.0)
+
+	# Ring shape: transparent center, bright band, transparent edge
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(0.3, 0.9, 0.4, 0.0))
+	gradient.add_point(0.55, Color(0.3, 0.9, 0.4, 0.0))
+	gradient.add_point(0.7, Color(0.3, 0.9, 0.4, 0.7))
+	gradient.set_color(gradient.get_point_count() - 1, Color(0.3, 0.9, 0.4, 0.0))
+	gradient.set_offset(gradient.get_point_count() - 1, 1.0)
+
+	var tex := GradientTexture2D.new()
+	tex.gradient = gradient
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	tex.width = 64
+	tex.height = 64
+
+	_ready_ring.texture_albedo = tex
+	_ready_ring.upper_fade = 0.0
+	_ready_ring.lower_fade = 0.2
+	_ready_ring.cull_mask = 1
+	_ready_ring.visible = false
+	_ready_ring.top_level = true
+	add_child(_ready_ring)
+
+
+func _update_ready_ring(actionable: bool) -> void:
+	if not _ready_ring:
+		return
+	if actionable and not _ready_ring.visible:
+		_ready_ring.visible = true
+		_ready_ring.modulate.a = 1.0
+		# Start a looping pulse
+		if _ready_ring_tween:
+			_ready_ring_tween.kill()
+		_ready_ring_tween = create_tween().set_loops()
+		_ready_ring_tween.tween_property(_ready_ring, "modulate:a", 0.4, 0.8) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_ready_ring_tween.tween_property(_ready_ring, "modulate:a", 1.0, 0.8) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	elif not actionable and _ready_ring.visible:
+		_ready_ring.visible = false
+		if _ready_ring_tween:
+			_ready_ring_tween.kill()
+			_ready_ring_tween = null
+
+
 func _create_shadow_decal() -> void:
 	var decal := Decal.new()
 	decal.size = Vector3(1.5, 20.0, 1.5)
@@ -316,7 +383,9 @@ func _create_shadow_decal() -> void:
 	decal.upper_fade = 0.0
 	decal.lower_fade = 0.2
 	decal.cull_mask = 1
+	decal.top_level = true
 	add_child(decal)
+	_shadow_decal = decal
 
 
 func _spawn_impact_flash(pos: Vector3, scale_mult: float = 1.0) -> void:
