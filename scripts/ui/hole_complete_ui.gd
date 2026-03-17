@@ -25,6 +25,12 @@ func show_result(strokes: int, par: int, score_name: String) -> void:
 
 	show()
 
+func set_button_text(text: String) -> void:
+	if next_button:
+		next_button.text = text
+
+
 func _on_next_button_pressed() -> void:
+	next_button.text = "Next Hole"
 	hide()
 	next_hole_requested.emit()

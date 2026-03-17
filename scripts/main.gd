@@ -295,11 +295,16 @@ func _on_hole_completed(strokes: int, par: int, score_name: String) -> void:
 	)
 	_scorecard.show_scorecard()
 	hole_complete_ui.show_result(strokes, par, score_name)
+	# Show "Finish" on the last hole instead of "Next Hole"
+	if course_manager.current_hole_index >= course_manager.holes_in_course:
+		hole_complete_ui.set_button_text("Finish")
 
 
 func _on_next_hole_requested() -> void:
-	# Last hole already handled by _on_course_completed — don't show upgrade screen
+	# Last hole — skip upgrade screen, advance directly to trigger course completion
 	if course_manager.current_hole_index >= course_manager.holes_in_course:
+		_scorecard.hide_scorecard()
+		course_manager.advance_to_next_hole()
 		return
 	_show_upgrade_screen()
 
@@ -332,6 +337,7 @@ func _on_upgrade_selected(upgrade: UpgradeDefinition) -> void:
 func _on_course_completed(total_strokes: int, total_par: int) -> void:
 	print("Course complete! Strokes: %d  Par: %d" % [total_strokes, total_par])
 	MetaProgression.on_run_complete()
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 
 # -------------------------------------------------------------------------
