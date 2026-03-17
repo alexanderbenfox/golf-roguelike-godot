@@ -50,8 +50,8 @@ func build(hole_layout: HoleGenerator.HoleLayout) -> void:
 func get_tee_world_position() -> Vector3:
 	if layout.terrain_data:
 		var terrain_y: float = layout.terrain_data.get_height_at(0.0, 0.0)
-		return global_position + Vector3(0.0, terrain_y + 0.5, 0.0)
-	return global_position + Vector3(0.0, 1.0, 0.0)
+		return global_position + Vector3(0.0, terrain_y + 0.2, 0.0)
+	return global_position + Vector3(0.0, 0.7, 0.0)
 
 
 ## Returns true if `world_pos` is outside the playable area for this hole.

@@ -36,7 +36,7 @@ class PhysicsParams:
 		linear_damp = 1.5
 		angular_damp = 2.5
 		ball_friction = 1.0
-		ground_friction = 2.0
+		ground_friction = 0.4
 		ball_bounce = 0.6
 		ground_bounce = 0.3
 		gravity_scale = 1.0
@@ -70,6 +70,13 @@ static func simulate_step(state: SimulationState, params: PhysicsParams, delta: 
 		new_state.is_on_ground = true
 		new_state.position.y = ground_h + params.ball_radius
 
+		# Terrain normal (flat ground = straight up)
+		var ground_normal := Vector3.UP
+		if params.terrain:
+			ground_normal = params.terrain.get_normal_at(
+				new_state.position.x, new_state.position.z
+			)
+
 		if new_state.velocity.y < 0.0:
 			var combined_bounce := params.ball_bounce * params.ground_bounce
 			new_state.velocity.y = -new_state.velocity.y * combined_bounce
@@ -78,11 +85,15 @@ static func simulate_step(state: SimulationState, params: PhysicsParams, delta: 
 				new_state.velocity.y = 0.0
 
 		if new_state.position.y <= ground_h + params.ball_radius + 0.01:
+			# Project gravity onto slope surface to accelerate ball downhill
+			var slope_force: Vector3 = gravity_vector - ground_normal * gravity_vector.dot(ground_normal)
+			new_state.velocity += slope_force * delta
+
 			var horizontal_velocity := Vector3(new_state.velocity.x, 0.0, new_state.velocity.z)
 
 			if horizontal_velocity.length() > 0.01:
 				var combined_friction := params.ball_friction * params.ground_friction
-				var friction_force := -horizontal_velocity.normalized() * combined_friction * gravity * delta
+				var friction_force := -horizontal_velocity.normalized() * combined_friction * gravity * params.gravity_scale * delta
 
 				var new_horizontal := horizontal_velocity + friction_force
 
@@ -125,6 +136,11 @@ static func simulate_trajectory(
 
 	return positions
 
-# Check if simulation has stopped
+# Check if simulation has stopped.
+# On the ground, use a higher threshold for horizontal speed so the ball
+# doesn't creep along at near-zero speed on gentle slopes.
 static func is_stopped(state: SimulationState, threshold: float = 0.1) -> bool:
+	if state.is_on_ground:
+		var horizontal_speed: float = Vector2(state.velocity.x, state.velocity.z).length()
+		return horizontal_speed < threshold * 4.0
 	return state.velocity.length() < threshold

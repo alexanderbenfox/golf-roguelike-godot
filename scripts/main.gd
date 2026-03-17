@@ -10,6 +10,7 @@ const ProceduralHoleScript = preload("res://scripts/procedural_hole.gd")
 const UpgradeScreenScript = preload("res://scripts/ui/upgrade_screen.gd")
 const GolferStatsScript = preload("res://resources/golfer_stats.gd")
 const ScorecardUIScript = preload("res://scripts/ui/scorecard_ui.gd")
+const DebugOverlayScript = preload("res://scripts/ui/debug_overlay.gd")
 
 ## Starting stats for the golfer — edit in Inspector to tune defaults.
 @export var golfer_stats: Resource  # GolferStats
@@ -32,6 +33,7 @@ var current_hole: ProceduralHole
 var _upgrade_screen: UpgradeScreen
 var _distance_label: Label
 var _scorecard: Control
+var _debug_overlay: DebugOverlay
 
 
 func _ready() -> void:
@@ -66,8 +68,25 @@ func _ready() -> void:
 	_scorecard = ScorecardUIScript.new()
 	$UICanvas.add_child(_scorecard)
 
+	# Debug overlay (toggle with F3)
+	_debug_overlay = DebugOverlayScript.new()
+	$UICanvas.add_child(_debug_overlay)
+
 	# Start single-player session
 	_start_singleplayer()
+
+
+func _process(_delta: float) -> void:
+	if _debug_overlay and ball:
+		var speed: float = ball.sim_state.velocity.length() if ball.sim_state else 0.0
+		var stopped: bool = PhysicsSimulator.is_stopped(ball.sim_state, ball.STOP_VELOCITY_THRESHOLD) if ball.sim_state else false
+		_debug_overlay.set_value("Ball speed", "%.2f m/s" % speed)
+		_debug_overlay.set_value("Ball pos", "%.1f, %.1f, %.1f" % [ball.global_position.x, ball.global_position.y, ball.global_position.z])
+		_debug_overlay.set_value("Last tee", "%.1f, %.1f, %.1f" % [ball.last_shot_position.x, ball.last_shot_position.y, ball.last_shot_position.z])
+		_debug_overlay.set_value("On ground", str(ball.sim_state.is_on_ground) if ball.sim_state else "—")
+		_debug_overlay.set_value("Simulating", str(ball.is_simulating))
+		_debug_overlay.set_value("Is stopped", str(stopped))
+		_debug_overlay.set_value("Turn active", str(ball._turn_active))
 
 
 func _setup_environment() -> void:
@@ -153,9 +172,10 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 	ball.reset_position(tee_position)
 	ball.set_bounds_check(current_hole.is_out_of_bounds)
 
-	# Point camera toward the cup
+	# Point camera toward the cup and snap to position
 	var to_cup: Vector3 = layout.cup_position - tee_position
 	camera.camera_angle = atan2(-to_cup.x, -to_cup.z)
+	camera.snap_to_target()
 	var my_player: PlayerState = \
 		game_state.players.get(network_manager.get_my_peer_id()) as PlayerState
 	ball.setup_physics_params(my_player, layout.terrain_data)
@@ -165,6 +185,8 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 
 
 func _on_ball_entered_cup() -> void:
+	if ball._ignore_cup:
+		return
 	_spawn_cup_celebration(ball.global_position)
 	var my_id: int = network_manager.get_my_peer_id()
 	scoring_manager.complete_hole()

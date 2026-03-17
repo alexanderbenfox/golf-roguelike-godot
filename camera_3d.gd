@@ -38,6 +38,23 @@ var _follow_velocity: Vector3 = Vector3.ZERO
 var _last_follow_dir: Vector3 = Vector3.FORWARD
 
 
+## Immediately snap the camera to its orbit position around the follow target.
+## Call this after teleporting the ball (e.g. new hole) to avoid a slow lerp.
+func snap_to_target() -> void:
+	if not follow_target:
+		return
+	camera_height_offset = 0.0
+	_current_aim_lateral = 0.0
+	_current_aim_height = 0.0
+	var pos := follow_target.global_position + Vector3(
+		sin(camera_angle) * distance,
+		height,
+		cos(camera_angle) * distance
+	)
+	global_position = pos
+	look_at(follow_target.global_position + Vector3(0.0, 0.5, 0.0))
+
+
 func set_aiming(active: bool) -> void:
 	_aim_offset_active = active
 

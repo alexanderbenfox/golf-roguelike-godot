@@ -73,12 +73,21 @@ var _ready_ring: Decal
 var _ready_ring_tween: Tween
 var _shadow_decal: Decal
 
+# Brief flag to ignore cup collisions right after a position reset
+var _ignore_cup: bool = false
+
 
 # -------------------------------------------------------------------------
 # Lifecycle
 # -------------------------------------------------------------------------
 
+var _initialized: bool = false
+
 func _ready() -> void:
+	if _initialized:
+		return
+	_initialized = true
+
 	contact_monitor = true
 	max_contacts_reported = 4
 	add_to_group("ball")
@@ -283,8 +292,10 @@ func _simulate_step(delta: float) -> void:
 	ball_moved.emit(global_position)
 
 	if PhysicsSimulator.is_stopped(sim_state, STOP_VELOCITY_THRESHOLD):
+		sim_state.velocity = Vector3.ZERO
+		linear_velocity = Vector3.ZERO
+		angular_velocity = Vector3.ZERO
 		is_simulating = false
-		freeze = false
 		ball_trail.stop()
 		if camera and camera.has_method("stop_follow_shot"):
 			camera.stop_follow_shot()
@@ -421,14 +432,31 @@ func _spawn_impact_flash(pos: Vector3, scale_mult: float = 1.0) -> void:
 	get_tree().create_timer(1.5).timeout.connect(particles.queue_free)
 
 
+func _clear_ignore_cup() -> void:
+	_ignore_cup = false
+
+
 func is_at_rest() -> bool:
-	return not is_simulating and linear_velocity.length() < 0.1
+	return not is_simulating
 
 
 func reset_position(pos: Vector3) -> void:
-	global_position = pos
-	last_shot_position = pos
+	is_simulating = false
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
-	is_simulating = false
-	freeze = false
+	freeze = true
+	last_shot_position = pos
+	if sim_state:
+		sim_state.position = pos
+		sim_state.velocity = Vector3.ZERO
+	# Remove and re-add to force the physics server to pick up the new position.
+	# Setting transforms directly doesn't work after move_and_collide desync.
+	_ignore_cup = true
+	var parent_node: Node = get_parent()
+	parent_node.remove_child(self)
+	transform = Transform3D.IDENTITY
+	if parent_node is Node3D:
+		(parent_node as Node3D).global_position = pos
+	parent_node.add_child(self)
+	# Clear the cup-ignore flag after physics has settled
+	get_tree().physics_frame.connect(_clear_ignore_cup, CONNECT_ONE_SHOT)
