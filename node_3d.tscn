@@ -23,7 +23,6 @@
 [ext_resource type="Resource" uid="uid://bla40gb1alvk6" path="res://resources/upgrades/straight_shot.tres" id="11_upg8"]
 [ext_resource type="Resource" uid="uid://o8ca1ucqx71k" path="res://resources/upgrades/all_golden_club.tres" id="11_upg9"]
 
-
 [node name="Main" type="Node3D" unique_id=663232325]
 script = ExtResource("1_i5arm")
 golfer_stats = ExtResource("2_cdqbm")
@@ -52,7 +51,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5283225, 2.6659837)
 script = ExtResource("3_a0tk4")
 follow_target = NodePath("../GolfBall/RigidBody3D")
 max_height = 8.0
-
 
 [node name="ScoringManager" type="Node" parent="." unique_id=554372091]
 script = ExtResource("4_r3fl7")

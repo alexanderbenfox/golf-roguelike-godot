@@ -20,5 +20,5 @@ id = "straight_shot"
 display_name = "Straight Shot"
 description = "Tour Edge Exotics E725 driver prioritizes straight shot performance over power. +50% accuracy/-25% power"
 rarity = 2
-effects = [SubResource("Resource_6s5w1"), SubResource("Resource_apdhp")]
+effects = Array[ExtResource("1_euyxx")]([SubResource("Resource_6s5w1"), SubResource("Resource_apdhp")])
 metadata/_custom_type_script = "uid://clgofk0vig4am"

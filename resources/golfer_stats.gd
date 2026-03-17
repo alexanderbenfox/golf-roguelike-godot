@@ -18,7 +18,7 @@ extends Resource
 
 @export_group("Gravity")
 ## Gravity multiplier. Lower = floatier shots, higher = heavier ball.
-@export_range(0.1, 3.0, 0.05) var gravity_scale: float = 1.0
+@export_range(0.1, 15.0, 0.05) var gravity_scale: float = 3.0
 
 @export_group("Accuracy")
 ## Shot accuracy. 0.0 = max spread, 1.0 = perfect aim.
