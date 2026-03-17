@@ -54,7 +54,7 @@ var _accuracy: float = 0.7
 var last_shot_position: Vector3 = Vector3.ZERO
 var _bounds_check: Callable
 
-const STOP_VELOCITY_THRESHOLD: float = 0.3
+const STOP_VELOCITY_THRESHOLD: float = 0.05
 
 # ---- Node references (set via @export so scene wiring is explicit) ---------
 

@@ -67,13 +67,15 @@ func get_aim_forward() -> Vector3:
 
 func start_follow_shot() -> void:
 	_mode = Mode.FOLLOW_SHOT
+	_last_follow_dir = get_aim_forward()
 
 
 func set_follow_velocity(vel: Vector3) -> void:
 	_follow_velocity = vel
 	var horizontal := Vector3(vel.x, 0.0, vel.z)
 	if horizontal.length() > 0.3:
-		_last_follow_dir = horizontal.normalized()
+		var target_dir: Vector3 = horizontal.normalized()
+		_last_follow_dir = _last_follow_dir.slerp(target_dir, 0.05)
 
 
 func stop_follow_shot() -> void:
