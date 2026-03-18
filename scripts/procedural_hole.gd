@@ -43,6 +43,7 @@ var _bounds_angle: float         # radians, matches hole_direction
 func build(hole_layout: HoleGenerator.HoleLayout) -> void:
 	layout = hole_layout
 	_build_terrain()
+	_build_hazard_planes()
 	_build_obstacles()
 	_build_cup()
 
@@ -105,6 +106,57 @@ func _build_terrain() -> void:
 	col_shape.shape = result["shape"] as ConcavePolygonShape3D
 	static_body.add_child(col_shape)
 	add_child(static_body)
+
+
+# -------------------------------------------------------------------------
+# Hazard planes (water / lava)
+# -------------------------------------------------------------------------
+
+func _build_hazard_planes() -> void:
+	if not layout.terrain_data:
+		return
+	var terrain: RefCounted = layout.terrain_data
+	var w: float = terrain.grid_width * terrain.cell_size
+	var d: float = terrain.grid_depth * terrain.cell_size
+	var cx: float = terrain.origin.x + w * 0.5
+	var cz: float = terrain.origin.z + d * 0.5
+
+	if terrain.water_height > -900.0:
+		_add_hazard_plane(
+			Vector3(cx, terrain.water_height + 0.05, cz),
+			Vector2(w, d),
+			Color(0.1, 0.3, 0.65, 0.55),
+			false,
+		)
+	if terrain.lava_height > -900.0:
+		_add_hazard_plane(
+			Vector3(cx, terrain.lava_height + 0.05, cz),
+			Vector2(w, d),
+			Color(0.9, 0.25, 0.02, 0.7),
+			true,
+		)
+
+
+func _add_hazard_plane(
+	center: Vector3, size: Vector2, color: Color, emissive: bool,
+) -> void:
+	var mi := MeshInstance3D.new()
+	var mesh := PlaneMesh.new()
+	mesh.size = size
+	mi.mesh = mesh
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	if emissive:
+		mat.emission_enabled = true
+		mat.emission = Color(color.r, color.g, color.b)
+		mat.emission_energy_multiplier = 1.5
+	mi.material_override = mat
+	mi.position = center
+	add_child(mi)
 
 
 # -------------------------------------------------------------------------

@@ -376,6 +376,22 @@ Phase 4 is complete -- Zone-based friction is now live. `PhysicsSimulator.simula
 - `TerrainMeshBuilder` reads zone colors from biome, generates world-space UVs on every vertex
 - `HoleGenConfig.biome` serves as fallback when no biome_sequence is set
 
+Phase 5 is complete -- Water and lava hazards are now functional:
+
+**BiomeDefinition** gains `water_height` and `lava_height` exports (default -999.0 = disabled). Meadow uses `water_height = -0.5`, Canyon uses `water_height = -1.5`, Desert has both disabled.
+
+**HeightmapGenerator** pipeline extended with Step 7 (`_paint_hazard_zones()`): after height clamping, cells below `water_height`/`lava_height` are reassigned to WATER/LAVA zones (only ROUGH and OOB cells — spatial zones like GREEN, TEE, FAIRWAY are preserved). Terrain's `water_height`/`lava_height` are set from the biome so runtime queries work.
+
+**ProceduralHole** renders semi-transparent hazard planes — blue water plane at `water_height + 0.05`, emissive orange/red lava plane at `lava_height + 0.05`. Both cover the full terrain grid extents, double-sided, unshaded.
+
+**GolfBall** hazard detection:
+- Water: checked when ball comes to rest. Teleports ball back to `last_shot_position` and emits `hit_water` signal (same pattern as OOB).
+- Lava: checked every frame while ball is on ground. Applies an upward + lateral bounce (toward last shot position) so ball pops off lava and lands on safe ground. Max 3 bounces before force-teleporting like water. Emits `hit_lava` on first contact only.
+
+**ScoringManager** gains `add_penalty(count)` for hazard stroke penalties (distinct from `add_stroke()` which represents a swing).
+
+**Main** connects `hit_water` and `hit_lava` signals → `add_penalty(1)` + coloured hazard message ("Water Hazard! +1 Stroke" / "Lava! +1 Stroke").
+
 ---
 
 ## New File Structure

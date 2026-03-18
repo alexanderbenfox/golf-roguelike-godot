@@ -154,6 +154,12 @@ static func generate(
 	# --- Step 6: Clamp heights ---
 	_clamp_heights(terrain, min_h, max_h)
 
+	# --- Step 7: Paint hazard zones (needs final heights) ---
+	if biome:
+		terrain.water_height = biome.water_height
+		terrain.lava_height = biome.lava_height
+	_paint_hazard_zones(terrain)
+
 	# Set key positions with correct Y
 	terrain.tee_position = Vector3(
 		tee_pos.x, ground_height, tee_pos.z,
@@ -359,6 +365,29 @@ static func _paint_zones(
 
 			terrain.zones[cell_idx] = \
 				TerrainDataScript.ZoneType.ROUGH
+
+
+## Reassign cells to WATER or LAVA based on final heights.
+## Only overrides ROUGH and OOB — spatial zones (GREEN, TEE, FAIRWAY, BUNKER)
+## are preserved so the green/tee never become submerged.
+static func _paint_hazard_zones(terrain: RefCounted) -> void:
+	var has_water: bool = terrain.water_height > -900.0
+	var has_lava: bool = terrain.lava_height > -900.0
+	if not has_water and not has_lava:
+		return
+
+	for i: int in range(terrain.heights.size()):
+		var zone: int = terrain.zones[i]
+		# Only override rough and OOB
+		if zone != TerrainDataScript.ZoneType.ROUGH \
+			and zone != TerrainDataScript.ZoneType.OOB:
+			continue
+		var h: float = terrain.heights[i]
+		# Lava takes priority over water (checked first)
+		if has_lava and h < terrain.lava_height:
+			terrain.zones[i] = TerrainDataScript.ZoneType.LAVA
+		elif has_water and h < terrain.water_height:
+			terrain.zones[i] = TerrainDataScript.ZoneType.WATER
 
 
 # -------------------------------------------------------------------------

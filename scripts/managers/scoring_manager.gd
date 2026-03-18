@@ -19,6 +19,11 @@ func add_stroke() -> void:
 	current_strokes += 1
 	stroke_taken.emit(current_strokes)
 
+
+func add_penalty(count: int = 1) -> void:
+	current_strokes += count
+	stroke_taken.emit(current_strokes)
+
 func complete_hole() -> void:
 	total_score += current_strokes
 	holes_completed += 1

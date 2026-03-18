@@ -27,6 +27,12 @@ signal ball_moved(position: Vector3)
 ## Emitted when the ball goes out of bounds and is teleported back.
 signal out_of_bounds(peer_id: int)
 
+## Emitted when the ball lands in water. Ball is teleported back automatically.
+signal hit_water(peer_id: int)
+
+## Emitted when the ball contacts lava. Ball bounces out automatically.
+signal hit_lava(peer_id: int)
+
 # ---- Identity --------------------------------------------------------------
 
 ## Set by the scene that owns this ball so signals carry the right peer_id.
@@ -55,6 +61,10 @@ var last_shot_position: Vector3 = Vector3.ZERO
 var _bounds_check: Callable
 
 const STOP_VELOCITY_THRESHOLD: float = 0.05
+const MAX_LAVA_BOUNCES: int = 3
+
+var _lava_bounce_count: int = 0
+var _lava_penalty_emitted: bool = false
 
 # ---- Node references (set via @export so scene wiring is explicit) ---------
 
@@ -247,6 +257,8 @@ func _cancel_aim() -> void:
 ## Called after the server has validated and broadcast the shot.
 func play_shot(direction: Vector3, power: float) -> void:
 	last_shot_position = global_position
+	_lava_bounce_count = 0
+	_lava_penalty_emitted = false
 	var initial_velocity := (direction * power * _power_multiplier) / sim_params.mass
 	sim_state = PhysicsSimulator.SimulationState.new(global_position, initial_velocity)
 	is_simulating = true
@@ -284,6 +296,10 @@ func _simulate_step(delta: float) -> void:
 		_handle_out_of_bounds()
 		return
 
+	# Lava check — bounce the ball out immediately on contact
+	if sim_state.is_on_ground and _check_lava():
+		return
+
 	# Feed velocity to the follow camera and trail each frame
 	if camera and camera.has_method("set_follow_velocity"):
 		camera.set_follow_velocity(sim_state.velocity)
@@ -292,6 +308,9 @@ func _simulate_step(delta: float) -> void:
 	ball_moved.emit(global_position)
 
 	if PhysicsSimulator.is_stopped(sim_state, STOP_VELOCITY_THRESHOLD):
+		# Water check — teleport back when ball comes to rest in water
+		if _check_water():
+			return
 		sim_state.velocity = Vector3.ZERO
 		linear_velocity = Vector3.ZERO
 		angular_velocity = Vector3.ZERO
@@ -313,6 +332,71 @@ func _handle_out_of_bounds() -> void:
 	angular_velocity = Vector3.ZERO
 	sim_state = PhysicsSimulator.SimulationState.new(last_shot_position, Vector3.ZERO)
 	out_of_bounds.emit(peer_id)
+
+
+# -------------------------------------------------------------------------
+# Hazard detection
+# -------------------------------------------------------------------------
+
+## Returns true (and handles the hazard) if ball is in water.
+func _check_water() -> bool:
+	if not sim_params.terrain:
+		return false
+	var pos: Vector3 = global_position
+	if not sim_params.terrain.is_water_at(pos.x, pos.z):
+		return false
+	_handle_water_hazard()
+	return true
+
+
+## Returns true (and handles the hazard) if ball is on lava.
+func _check_lava() -> bool:
+	if not sim_params.terrain:
+		return false
+	var pos: Vector3 = global_position
+	if not sim_params.terrain.is_lava_at(pos.x, pos.z):
+		return false
+	_handle_lava_bounce()
+	return true
+
+
+func _handle_water_hazard() -> void:
+	is_simulating = false
+	freeze = false
+	ball_trail.stop()
+	if camera and camera.has_method("stop_follow_shot"):
+		camera.stop_follow_shot()
+	global_position = last_shot_position
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	sim_state = PhysicsSimulator.SimulationState.new(
+		last_shot_position, Vector3.ZERO,
+	)
+	hit_water.emit(peer_id)
+
+
+func _handle_lava_bounce() -> void:
+	_lava_bounce_count += 1
+	# Emit penalty signal only on first contact
+	if not _lava_penalty_emitted:
+		_lava_penalty_emitted = true
+		hit_lava.emit(peer_id)
+	# Too many bounces — force teleport like water
+	if _lava_bounce_count > MAX_LAVA_BOUNCES:
+		_handle_water_hazard()
+		return
+	# Bounce upward + push away from lava toward safe ground
+	var bounce_speed: float = 4.0 + randf() * 2.0
+	var lateral_dir: Vector3
+	if last_shot_position.distance_to(global_position) > 1.0:
+		lateral_dir = (last_shot_position - global_position).normalized()
+		lateral_dir.y = 0.0
+		lateral_dir = lateral_dir.normalized()
+	else:
+		var angle: float = randf() * TAU
+		lateral_dir = Vector3(cos(angle), 0.0, sin(angle))
+	sim_state.velocity = Vector3.UP * bounce_speed + lateral_dir * 3.0
+	sim_state.is_on_ground = false
 
 
 # -------------------------------------------------------------------------

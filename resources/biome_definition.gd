@@ -57,6 +57,14 @@ const TerrainDataScript = preload("res://scripts/terrain/terrain_data.gd")
 ## Radius of the flattened area around the tee (metres).
 @export_range(2.0, 10.0, 0.5) var tee_flatten_radius: float = 5.0
 
+@export_group("Hazards")
+
+## Height below which terrain becomes water. Set to -999 to disable.
+@export_range(-20.0, 10.0, 0.1) var water_height: float = -999.0
+
+## Height below which terrain becomes lava. Set to -999 to disable.
+@export_range(-20.0, 10.0, 0.1) var lava_height: float = -999.0
+
 @export_group("Rendering")
 
 ## If set, replaces the default vertex-color material on the terrain mesh.
@@ -123,6 +131,7 @@ func get_bounce_modifier(zone_type: int) -> float:
 static func create_meadow() -> BiomeDefinition:
 	var biome := BiomeDefinition.new()
 	biome.biome_name = "Meadow"
+	biome.water_height = 0.0
 	# Noise defaults are already meadow-appropriate
 	biome.zones = [
 		_zone(
@@ -172,6 +181,7 @@ static func create_meadow() -> BiomeDefinition:
 static func create_canyon() -> BiomeDefinition:
 	var biome := BiomeDefinition.new()
 	biome.biome_name = "Canyon"
+	biome.water_height = -0.5
 	biome.terrain_amplitude = 8.0
 	biome.terrain_frequency = 0.018
 	biome.noise_octaves = 4

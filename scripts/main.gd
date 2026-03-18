@@ -51,6 +51,8 @@ func _ready() -> void:
 	ball.shot_ready.connect(_on_shot_ready)
 	ball.ball_at_rest.connect(_on_ball_at_rest)
 	ball.out_of_bounds.connect(_on_ball_out_of_bounds)
+	ball.hit_water.connect(_on_ball_hit_water)
+	ball.hit_lava.connect(_on_ball_hit_lava)
 
 	# Wire network → ball and turn manager
 	network_manager.shot_received.connect(_on_shot_received)
@@ -302,6 +304,28 @@ func _show_oob_message() -> void:
 	label.offset_top = 80.0
 	$UICanvas.add_child(label)
 	# Remove after 2 seconds
+	get_tree().create_timer(2.0).timeout.connect(label.queue_free)
+
+
+func _on_ball_hit_water(_peer_id: int) -> void:
+	scoring_manager.add_penalty(1)
+	_show_hazard_message("Water Hazard! +1 Stroke", Color(0.2, 0.4, 0.9))
+
+
+func _on_ball_hit_lava(_peer_id: int) -> void:
+	scoring_manager.add_penalty(1)
+	_show_hazard_message("Lava! +1 Stroke", Color(0.95, 0.3, 0.05))
+
+
+func _show_hazard_message(text: String, color: Color) -> void:
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 28)
+	label.add_theme_color_override("font_color", color)
+	label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	label.offset_top = 80.0
+	$UICanvas.add_child(label)
 	get_tree().create_timer(2.0).timeout.connect(label.queue_free)
 
 

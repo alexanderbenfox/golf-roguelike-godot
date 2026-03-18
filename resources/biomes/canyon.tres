@@ -94,3 +94,4 @@ max_height = 14.0
 fairway_flatten_strength = 0.7
 green_flatten_radius = 12.0
 tee_flatten_radius = 6.0
+water_height = -0.5
