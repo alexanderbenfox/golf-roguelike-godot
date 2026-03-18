@@ -89,11 +89,15 @@ func _build_terrain() -> void:
 		return
 
 	# Build mesh + collision from heightmap
-	var result: Dictionary = TerrainMeshBuilderScript.build(layout.terrain_data)
+	var result: Dictionary = TerrainMeshBuilderScript.build(
+		layout.terrain_data
+	)
+	var biome: RefCounted = layout.terrain_data.biome
 
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.mesh = result["mesh"] as ArrayMesh
-	mesh_instance.material_override = TerrainMeshBuilderScript.create_material()
+	mesh_instance.material_override = \
+		TerrainMeshBuilderScript.create_material(biome)
 	add_child(mesh_instance)
 
 	var static_body := StaticBody3D.new()

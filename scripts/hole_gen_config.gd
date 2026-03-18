@@ -34,6 +34,12 @@ extends Resource
 ## 0.0 = all holes go straight. 1.0 = full ±50° variance.
 @export_range(0.0, 1.0, 0.05) var direction_variety: float = 1.0
 
+## ---- Biome ------------------------------------------------------------------
+
+## Biome definition for this course. Controls per-zone colors, friction, and
+## terrain material. Leave null to use the default Meadow biome.
+@export var biome: BiomeDefinition = null
+
 ## ---- Obstacles --------------------------------------------------------------
 
 ## Multiplier on the number of tree pairs placed along the fairway.

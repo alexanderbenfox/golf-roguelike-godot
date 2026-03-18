@@ -52,12 +52,11 @@ var water_height: float = -999.0
 ## Height below which terrain is lava. Set to -999.0 to disable lava.
 var lava_height: float = -999.0
 
-# ---- Friction modifiers per zone (set by biome) ---------------------------
+# ---- Biome reference (set by HeightmapGenerator) --------------------------
 
-var fairway_friction: float = 1.0
-var rough_friction: float = 1.5
-var green_friction: float = 0.7
-var bunker_friction: float = 3.0
+## BiomeDefinition that provides per-zone friction, colors, and materials.
+## When null, get_friction_at() falls back to sensible defaults.
+var biome: RefCounted = null  # BiomeDefinition
 
 
 # -------------------------------------------------------------------------
@@ -84,7 +83,7 @@ func grid_to_world(gx: int, gz: int) -> Vector3:
 
 
 ## Flat index into heights / zones arrays.
-func _idx(gx: int, gz: int) -> int:
+func idx(gx: int, gz: int) -> int:
 	return gx + gz * grid_width
 
 
@@ -92,7 +91,7 @@ func _idx(gx: int, gz: int) -> int:
 func _get_height_raw(gx: int, gz: int) -> float:
 	gx = clampi(gx, 0, grid_width - 1)
 	gz = clampi(gz, 0, grid_depth - 1)
-	return heights[_idx(gx, gz)]
+	return heights[idx(gx, gz)]
 
 
 # -------------------------------------------------------------------------
@@ -113,10 +112,10 @@ func get_height_at(world_x: float, world_z: float) -> float:
 	var tx: float = clampf(fx - float(x0), 0.0, 1.0)
 	var tz: float = clampf(fz - float(z0), 0.0, 1.0)
 
-	var h00: float = heights[_idx(x0, z0)]
-	var h10: float = heights[_idx(x1, z0)]
-	var h01: float = heights[_idx(x0, z1)]
-	var h11: float = heights[_idx(x1, z1)]
+	var h00: float = heights[idx(x0, z0)]
+	var h10: float = heights[idx(x1, z0)]
+	var h01: float = heights[idx(x0, z1)]
+	var h11: float = heights[idx(x1, z1)]
 
 	var h0: float = lerpf(h00, h10, tx)
 	var h1: float = lerpf(h01, h11, tx)
@@ -127,38 +126,38 @@ func get_height_at(world_x: float, world_z: float) -> float:
 ## Computed from the height gradient of neighbouring samples.
 func get_normal_at(world_x: float, world_z: float) -> Vector3:
 	var eps: float = cell_size
-	var hL: float = get_height_at(world_x - eps, world_z)
-	var hR: float = get_height_at(world_x + eps, world_z)
-	var hD: float = get_height_at(world_x, world_z - eps)
-	var hU: float = get_height_at(world_x, world_z + eps)
+	var h_left: float = get_height_at(world_x - eps, world_z)
+	var h_right: float = get_height_at(world_x + eps, world_z)
+	var h_down: float = get_height_at(world_x, world_z - eps)
+	var h_up: float = get_height_at(world_x, world_z + eps)
 
 	# Tangent vectors along X and Z, cross product gives normal
-	var normal := Vector3(hL - hR, 2.0 * eps, hD - hU).normalized()
+	var normal := Vector3(h_left - h_right, 2.0 * eps, h_down - h_up).normalized()
 	return normal
 
 
 ## Returns the zone type at a world XZ position (nearest cell).
 func get_zone_at(world_x: float, world_z: float) -> ZoneType:
 	var g: Vector2i = world_to_grid(world_x, world_z)
-	return zones[_idx(g.x, g.y)] as ZoneType
+	return zones[idx(g.x, g.y)] as ZoneType
 
 
 ## Returns the friction modifier for the zone at a world XZ position.
+## Delegates to BiomeDefinition when available; falls back to hardcoded defaults.
 func get_friction_at(world_x: float, world_z: float) -> float:
-	var zone: ZoneType = get_zone_at(world_x, world_z)
+	var zone: int = get_zone_at(world_x, world_z)
+	if biome:
+		return biome.get_friction(zone)
+	# Fallback when no biome is set (backward compatibility)
 	match zone:
-		ZoneType.FAIRWAY:
-			return fairway_friction
+		ZoneType.FAIRWAY, ZoneType.TEE:
+			return 1.0
 		ZoneType.GREEN:
-			return green_friction
-		ZoneType.ROUGH:
-			return rough_friction
+			return 0.7
 		ZoneType.BUNKER:
-			return bunker_friction
-		ZoneType.WATER, ZoneType.LAVA:
-			return rough_friction
+			return 3.0
 		_:
-			return rough_friction
+			return 1.5
 
 
 ## Returns true if the position is in a water hazard.

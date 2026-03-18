@@ -92,8 +92,18 @@ static func simulate_step(state: SimulationState, params: PhysicsParams, delta: 
 			var horizontal_velocity := Vector3(new_state.velocity.x, 0.0, new_state.velocity.z)
 
 			if horizontal_velocity.length() > 0.01:
-				var combined_friction := params.ball_friction * params.ground_friction
-				var friction_force := -horizontal_velocity.normalized() * combined_friction * gravity * params.gravity_scale * delta
+				var zone_friction: float = params.ground_friction
+				if params.terrain:
+					zone_friction = params.terrain.get_friction_at(
+						new_state.position.x,
+						new_state.position.z,
+					)
+				var combined_friction := params.ball_friction * zone_friction
+				var friction_force := (
+					-horizontal_velocity.normalized()
+					* combined_friction
+					* gravity * params.gravity_scale * delta
+				)
 
 				var new_horizontal := horizontal_velocity + friction_force
 

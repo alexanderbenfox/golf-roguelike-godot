@@ -39,55 +39,101 @@ The central data structure is **TerrainData** -- a grid-based heightmap + zone m
 
 ### BiomeDefinition Resource (`resources/biome_definition.gd`)
 
-Each biome is a `.tres` resource with exported parameters:
+Each biome is a Resource with exported parameters. **Implemented (Phase 4):**
 
-- **Colors**: fairway, rough, green, tee, hazard, water, OOB
+- **Zone definitions**: `Array[ZoneDefinition]` — each zone has `color`, `friction`, `bounce_modifier`, `texture`
+- **Material override**: optional `Material` slot (for splatmap shader or simple textured terrain)
+- **UV scale**: controls world-space UV tiling density
+- **Default factory**: `BiomeDefinition.create_meadow()` provides the baseline biome
+
+**Planned additions (Phase 6+):**
+
 - **Terrain noise**: amplitude, frequency, octaves, lacunarity, persistence, ridge mode
 - **Elevation constraints**: max height, fairway flatten strength, green/tee flatten radius
 - **Hazard planes**: water_height, lava_height
 - **Obstacles**: available types + density multiplier
-- **Mechanics**: base wind, wind variance, weather flag, friction modifiers per zone
+- **Mechanics**: base wind, wind variance, weather flag
 - **Progression**: difficulty tier, min meta level to unlock
+- **Splatmap shader**: terrain ShaderMaterial + per-zone textures via ZoneDefinition.texture
 
-### Biome Progression
+### Biome Progression & Course Sequencing
 
-**Linear escalation**: Run 1 = Meadow, Run 2 = Canyon, Run 3 = Desert, etc. Each run introduces exactly one new biome. **Per-course biome** (all 9 holes share one biome for visual cohesion). Terrain parameters escalate within the course (hole 1 = gentle, hole 9 = aggressive).
+Biome progression is configured via `CourseManager.biome_sequence` — an `Array[BiomeSegment]` editable in the Inspector. Each `BiomeSegment` pairs a `BiomeDefinition` with a `hole_count`:
+
+```
+biome_sequence:
+  [0]: BiomeSegment { biome: Meadow,  hole_count: 3, cell_size: 2.0, margin: 30.0 }
+  [1]: BiomeSegment { biome: Canyon,  hole_count: 3, cell_size: 1.5, margin: 40.0 }
+  [2]: BiomeSegment { biome: Desert,  hole_count: 3, cell_size: 2.0, margin: 50.0 }
+  → 9-hole course: holes 1-3 = Meadow, 4-6 = Canyon (higher res), 7-9 = Desert (wider bounds)
+```
+
+**Sequence rules:**
+- Holes generate in order of the array, each using its segment's biome
+- Total holes = sum of all `hole_count` values (no separate `holes_in_course` needed)
+- When `biome_sequence` is empty, falls back to `holes_in_course` × default Meadow biome
+- Each segment's biome controls zone colors, friction, material, noise params, and terrain shaping
+- Each segment also controls `cell_size` (terrain resolution) and `margin` (terrain bounds beyond playable area)
+- `HoleGenConfig` still controls difficulty parameters (par ranges, fairway width, obstacle density) shared across all segments
+
+**Run-based escalation (future):** A run manager could build the `biome_sequence` dynamically: Run 1 = [Meadow×9], Run 2 = [Meadow×5, Canyon×4], Run 3 = [Meadow×3, Canyon×3, Desert×3], etc. Each run introduces one new biome while keeping earlier biomes in the mix.
 
 ---
 
 ## Terrain Generation Pipeline
 
-Called from `HoleGenerator.generate()`, five steps:
+Called from `HoleGenerator.generate()`, six steps. Note: zone painting is done **first** (it only uses XZ spatial rules, no height dependency), which enables per-zone height modifiers in step 3.
 
-### Step 1: Hole Routing
-- Place tee at origin, determine direction/length (existing logic)
-- Pick tee and cup elevations from biome range
-- For par 4-5: optionally generate **dogleg waypoints** (1-2 turn points)
-- Build a **fairway spine** -- array of Vector3 control points from tee to cup
-- This spine is the "intended path" the fairway carves through terrain
-
-### Step 2: Heightmap Generation
-- Configure `FastNoiseLite` from biome noise params + seeded RNG
-- Allocate height grid (cell_size ~2m, so a 300x100m hole = ~7,500 cells, ~30KB)
-- Sample noise for each cell to get raw height
-- **Carve the fairway**: for each cell, compute distance to nearest spine segment. Within fairway width, blend height toward the spine's intended elevation using `fairway_flatten_strength`. This creates a smooth corridor through hilly terrain.
-- **Flatten the green**: within radius of cup, force height toward cup_elevation with smooth falloff
-- **Flatten the tee**: same for tee position
-- Clamp to biome's elevation range
-
-### Step 3: Zone Painting
-Assign each cell a zone type based on proximity + height:
+### Step 1: Zone Painting
+Assign each cell a zone type based on proximity (XZ only):
 
 | Zone | Rule |
 |------|------|
 | TEE | Within tee_flatten_radius of tee |
 | GREEN | Within green_flatten_radius of cup |
-| FAIRWAY | Within fairway_width of spine AND height near intended |
+| FAIRWAY | Within fairway_width of spine |
 | BUNKER | Within placed bunker radius |
-| WATER | Height < water_height |
-| LAVA | Height < lava_height |
+| WATER | Height < water_height (post-height pass) |
+| LAVA | Height < lava_height (post-height pass) |
 | ROUGH | All other playable terrain |
 | OOB | Beyond hole boundary margin |
+
+### Step 2: Heightmap Generation
+- Configure `FastNoiseLite` from biome noise params (`terrain_frequency`, `terrain_amplitude`, `noise_octaves`, `noise_lacunarity`, `noise_gain`) + seeded RNG
+- Allocate height grid (`cell_size` from BiomeSegment, default ~2m)
+- Sample noise for each cell to get raw height centred on `ground_height`
+
+### Step 3: Per-Zone Height Modifiers
+For each cell, look up the zone's `ZoneDefinition` and reshape the terrain:
+- Split noise delta into hill (positive) or valley (negative) relative to `ground_height`
+- Apply **shape exponent** (`hill_shape` / `valley_shape`): < 1.0 = rounded/plateau, 1.0 = linear, > 1.0 = peaked/V-shaped
+- Apply **scale** (`hill_scale` / `valley_scale`): 0.0 = flat, 1.0 = full noise, 2.0 = exaggerated
+- Add **height_offset** (e.g., bunkers = -0.3 for slight depression)
+
+```gdscript
+if delta > 0:
+    delta = pow(delta, zone_def.hill_shape) * zone_def.hill_scale
+else:
+    delta = -pow(abs(delta), zone_def.valley_shape) * zone_def.valley_scale
+height = ground_height + delta + zone_def.height_offset
+```
+
+### Step 4: Fairway Carving
+- For each cell near the fairway spine, blend height toward the spine's intended elevation using `biome.fairway_flatten_strength`
+- Quadratic falloff: centre = full flattening, edges blend into rough
+- This overrides per-zone height modifiers within the fairway, keeping it smooth
+
+### Step 5: Green/Tee Flattening
+- Flatten terrain in a circular area around cup (`biome.green_flatten_radius`) and tee (`biome.tee_flatten_radius`)
+- Quadratic falloff: centre snaps to `ground_height`, edge blends
+
+### Step 6: Height Clamping
+- Clamp all cells to `biome.min_height` / `biome.max_height`
+
+### Step 7: Hole Routing (unchanged)
+- Place tee at origin, determine direction/length (existing logic)
+- For par 4-5: optionally generate **dogleg waypoints** (1-2 turn points, future)
+- Build a **fairway spine** -- array of Vector3 control points from tee to cup
 
 ### Step 4: Obstacle Placement (Static + Dynamic)
 - Use biome's obstacle type list and density
@@ -151,6 +197,53 @@ Pre-computed grid (not real-time noise sampling) because:
 5. **Water plane** -- semi-transparent PlaneMesh at water_height (visual only; physics handles water via height check)
 
 Single MeshInstance3D + StaticBody3D per hole. Matches existing flat-color art style (no textures needed).
+
+### Textured Terrain Rendering (Future)
+
+The mesh currently renders with vertex colors, but is built to support textured rendering via two mechanisms on `BiomeDefinition`:
+
+**Mechanism 1: Simple material override**
+Set `material_override` on BiomeDefinition to any `StandardMaterial3D` with an albedo texture. The mesh already has world-space UVs (`world_xz * uv_scale`), so a tiling grass texture works immediately. Good for a quick visual upgrade but applies one texture to the entire terrain.
+
+**Mechanism 2: Splatmap shader (per-zone textures)**
+For distinct materials per zone (grass fairway, sand bunker, rock rough, etc.), use a splatmap approach:
+
+1. **Zone map texture** — Bake `TerrainData.zones` (PackedByteArray) into an `ImageTexture` at generation time. Each pixel stores the zone type as a color channel or grayscale value. Add a helper to TerrainData:
+   ```gdscript
+   func bake_zone_map_texture() -> ImageTexture:
+       var img := Image.create(grid_width, grid_depth, false, Image.FORMAT_R8)
+       for gz in range(grid_depth):
+           for gx in range(grid_width):
+               var zone_byte: int = zones[idx(gx, gz)]
+               img.set_pixel(gx, gz, Color(zone_byte / 255.0, 0, 0))
+       var tex := ImageTexture.create_from_image(img)
+       return tex
+   ```
+
+2. **Terrain splatmap shader** — A `ShaderMaterial` that:
+   - Receives the zone map texture + per-zone albedo/normal/roughness textures as uniforms
+   - Samples the zone map at the fragment's UV to determine the zone
+   - Blends between adjacent zone textures at boundaries (using a smoothstep over zone map gradients)
+   - Tiles each zone texture independently using `uv_scale`
+
+   Shader uniforms would look like:
+   ```gdscript
+   shader_type spatial;
+   uniform sampler2D zone_map : filter_nearest;
+   uniform sampler2D fairway_tex : source_color;
+   uniform sampler2D rough_tex : source_color;
+   uniform sampler2D green_tex : source_color;
+   uniform sampler2D bunker_tex : source_color;
+   uniform sampler2D water_tex : source_color;
+   uniform float tile_scale = 10.0;
+   uniform float blend_sharpness = 8.0;
+   ```
+
+3. **Wiring** — `BiomeDefinition.material_override` is set to the splatmap ShaderMaterial. Each `ZoneDefinition.texture` feeds into the shader's per-zone texture uniforms. `TerrainMeshBuilder` or `ProceduralHole` calls `bake_zone_map_texture()` and assigns it to the shader at build time.
+
+4. **Vertex colors preserved** — Even with a splatmap shader, vertex colors are still generated. The shader can optionally multiply by vertex color for tinting/variation, or ignore them entirely.
+
+**When to implement:** Phase 6 (BiomeDefinition resources) is the natural time, when each biome needs a distinct visual identity beyond color swaps. The infrastructure (UVs, material_override slot, per-zone texture slots) is already in place.
 
 ---
 
@@ -242,9 +335,9 @@ var lava_float_strength: float = 0.0  # from upgrade
 | **1** | TerrainData + HeightmapGenerator (flat output) | Data plumbing, no visual change |
 | **2** | TerrainMeshBuilder + collision | Terrain is visually hilly, ball collides with it |
 | **3** | Terrain-aware PhysicsSimulator | Ball rolls on slopes, trajectory matches terrain |
-| **4** | Zone system + friction | Rough/fairway/bunker/green affect ball differently |
+| **4** | Zone system + friction + BiomeDefinition/ZoneDefinition resources | Rough/fairway/bunker/green affect ball differently; editor-configurable per biome |
 | **5** | Water/lava hazards + hazard plane rendering | Hybrid penalty system (water=teleport, lava=bounce) |
-| **6** | BiomeDefinition resources + linear progression | Multiple biomes with distinct identity |
+| **6** | Terrain textures (splatmap shader), saved .tres per biome, run-based biome progression | Multiple biomes with distinct visual identity + automated progression |
 | **7** | Wind + weather mechanics | Per-biome atmospheric effects |
 | **8** | Dynamic/timed hazards | Geysers, boulders, lightning per biome |
 | **9** | Hazard mitigation upgrades | Stone Skipper, Heat Rising, etc. in upgrade pool |
@@ -256,6 +349,33 @@ Phase 1 is complete -- `TerrainData` and `HeightmapGenerator` are implemented an
 
 Phase 2 is complete -- `TerrainMeshBuilder` generates vertex-coloured ArrayMesh + ConcavePolygonShape3D from heightmap data. `HeightmapGenerator` now uses FastNoiseLite for rolling hills with fairway carving and green/tee flattening. `ProceduralHole` replaced flat BoxShape3D + PlaneMesh overlays with terrain mesh + collision. `PhysicsSimulator` queries terrain height for ground detection. `TrajectoryDrawer` uses terrain height for ribbon clamping, landing detection, and halo placement. Obstacles placed at terrain surface height.
 
+Phase 3 is complete -- `PhysicsSimulator` uses terrain normals for slope-based gravity projection (ball rolls downhill), bounce reflects off terrain normal, and ground detection queries `terrain.get_height_at()` per frame.
+
+Phase 4 is complete -- Zone-based friction is now live. `PhysicsSimulator.simulate_step()` queries `terrain.get_friction_at()` each frame instead of using a single `params.ground_friction`, so fairway, rough, bunker, and green all feel mechanically distinct. This phase also introduced the full `BiomeDefinition`, `ZoneDefinition`, and `BiomeSegment` resource system (pulled forward from Phase 6):
+
+**BiomeDefinition** (Resource):
+- `Array[ZoneDefinition]` for per-zone properties
+- Terrain noise params: `terrain_amplitude`, `terrain_frequency`, `noise_octaves`, `noise_lacunarity`, `noise_gain`
+- Elevation limits: `min_height`, `max_height`
+- Fairway shaping: `fairway_flatten_strength`, `green_flatten_radius`, `tee_flatten_radius`
+- Rendering: `material_override: Material`, `uv_scale`
+- Static `create_meadow()` factory provides the default biome
+
+**ZoneDefinition** (Resource):
+- `color`, `friction`, `bounce_modifier`, `texture` (rendering + physics)
+- Terrain shaping: `hill_scale`, `valley_scale` (amplitude multipliers), `hill_shape`, `valley_shape` (exponent: < 1 = rounded, > 1 = peaked), `height_offset` (constant vertical shift)
+
+**BiomeSegment** (Resource):
+- `biome: BiomeDefinition`, `hole_count: int`
+- Terrain size: `cell_size` (grid resolution), `margin` (terrain bounds beyond playable area)
+
+**Pipeline changes:**
+- `HeightmapGenerator` reads noise/elevation/shaping params from BiomeDefinition instead of hardcoded constants
+- Pipeline reordered: zones painted first (spatial rules only) → noise fill → per-zone height modifiers → fairway carving → green/tee flattening → height clamping
+- `CourseManager.biome_sequence: Array[BiomeSegment]` drives course generation — each segment specifies biome, hole count, and terrain size
+- `TerrainMeshBuilder` reads zone colors from biome, generates world-space UVs on every vertex
+- `HoleGenConfig.biome` serves as fallback when no biome_sequence is set
+
 ---
 
 ## New File Structure
@@ -265,12 +385,14 @@ scripts/terrain/
     terrain_data.gd              # TerrainData (heightmap + zones + queries)
     heightmap_generator.gd       # Static: noise -> routing-carved heightmap
     terrain_mesh_builder.gd      # Static: TerrainData -> ArrayMesh + collision
-    biome_decorator.gd           # Cosmetic props (grass tufts, particles)
-    obstacle_builder.gd          # Per-type obstacle mesh creation
+    biome_decorator.gd           # Cosmetic props (grass tufts, particles) [future]
+    obstacle_builder.gd          # Per-type obstacle mesh creation [future]
 
 resources/
-    biome_definition.gd          # BiomeDefinition resource class
-    biomes/
+    zone_definition.gd           # ZoneDefinition resource (color, friction, texture per zone)
+    biome_definition.gd          # BiomeDefinition resource (zones array + material override)
+    biome_segment.gd             # BiomeSegment resource (biome + hole_count for course sequencing)
+    biomes/                      # Saved .tres biome instances [future]
         meadow.tres
         canyon.tres
         desert.tres
@@ -290,3 +412,5 @@ resources/
 | **Dynamic hazards** | Yes: timed/periodic in early biomes, free-roaming in later | Density is editor-configurable per biome |
 | **Terrain resolution** | 2m cells (~7.5K tris) | Good starting point, can refine later |
 | **Terrain detail** | 2m cell_size, ~150x50 grid per hole | ~30KB heightmap, fast bilinear interpolation |
+| **Zone properties** | Editor-configurable via ZoneDefinition resources on BiomeDefinition | Designers tweak friction/color/texture per zone per biome in Inspector |
+| **Terrain rendering** | Vertex colors now, splatmap shader later. UVs always generated. | material_override slot on BiomeDefinition enables drop-in texture support |

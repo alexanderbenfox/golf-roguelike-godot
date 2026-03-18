@@ -318,13 +318,13 @@ func _on_hole_completed(strokes: int, par: int, score_name: String) -> void:
 	_scorecard.show_scorecard()
 	hole_complete_ui.show_result(strokes, par, score_name)
 	# Show "Finish" on the last hole instead of "Next Hole"
-	if course_manager.current_hole_index >= course_manager.holes_in_course:
+	if course_manager.current_hole_index >= course_manager.hole_layouts.size():
 		hole_complete_ui.set_button_text("Finish")
 
 
 func _on_next_hole_requested() -> void:
 	# Last hole — skip upgrade screen, advance directly to trigger course completion
-	if course_manager.current_hole_index >= course_manager.holes_in_course:
+	if course_manager.current_hole_index >= course_manager.hole_layouts.size():
 		_scorecard.hide_scorecard()
 		course_manager.advance_to_next_hole()
 		return

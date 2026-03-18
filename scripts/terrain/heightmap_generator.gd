@@ -3,22 +3,30 @@
 ## Pure static functions, no Godot nodes. All generation is deterministic
 ## from the provided RandomNumberGenerator.
 ##
-## Pipeline: noise fill → fairway carving → green/tee flattening → zone painting.
+## Pipeline:
+##   1. Paint zones (spatial rules — no height dependency)
+##   2. Fill noise (using biome's noise params)
+##   3. Apply per-zone height modifiers (hill/valley scale, shape, offset)
+##   4. Carve fairway corridor (smooth toward spine elevation)
+##   5. Flatten green and tee areas
+##   6. Clamp heights to biome min/max
 class_name HeightmapGenerator
 extends RefCounted
 
 const TerrainDataScript = preload("res://scripts/terrain/terrain_data.gd")
+const BiomeDefinitionScript = preload("res://resources/biome_definition.gd")
 
-# ---- Noise defaults (will come from BiomeDefinition in Phase 6) ----
-
-const NOISE_FREQUENCY: float     = 0.012
-const NOISE_OCTAVES: int         = 3
-const NOISE_LACUNARITY: float    = 2.0
-const NOISE_GAIN: float          = 0.5
-const AMPLITUDE: float           = 3.0
-const FAIRWAY_FLATTEN: float     = 0.85
-const GREEN_FLATTEN_RADIUS: float = 10.0
-const TEE_FLATTEN_RADIUS: float  = 5.0
+# Fallback constants when no biome is set
+const _DEFAULT_FREQUENCY: float    = 0.012
+const _DEFAULT_OCTAVES: int        = 3
+const _DEFAULT_LACUNARITY: float   = 2.0
+const _DEFAULT_GAIN: float         = 0.5
+const _DEFAULT_AMPLITUDE: float    = 3.0
+const _DEFAULT_FW_FLATTEN: float   = 0.85
+const _DEFAULT_GREEN_RADIUS: float = 10.0
+const _DEFAULT_TEE_RADIUS: float   = 5.0
+const _DEFAULT_MIN_HEIGHT: float   = -2.0
+const _DEFAULT_MAX_HEIGHT: float   = 8.0
 
 
 # -------------------------------------------------------------------------
@@ -26,6 +34,8 @@ const TEE_FLATTEN_RADIUS: float  = 5.0
 # -------------------------------------------------------------------------
 
 ## Generate a TerrainData for the given hole routing.
+## Pass a BiomeDefinition to use its noise/elevation/zone params;
+## null falls back to hardcoded defaults.
 static func generate(
 	rng: RandomNumberGenerator,
 	tee_pos: Vector3,
@@ -36,15 +46,20 @@ static func generate(
 	ground_height: float = 0.5,
 	cell_size: float = 2.0,
 	margin: float = 30.0,
+	biome: BiomeDefinition = null,
 ) -> RefCounted:
 	var noise_seed: int = rng.randi()
 
 	var terrain: RefCounted = TerrainDataScript.new()
 	terrain.cell_size = cell_size
 
-	# Compute grid bounds — axis-aligned bounding box around the rotated hole + margin.
-	var dir := Vector3(sin(hole_direction), 0.0, -cos(hole_direction))
-	var right := Vector3(cos(hole_direction), 0.0, sin(hole_direction))
+	# Compute grid bounds — AABB around the rotated hole + margin
+	var dir := Vector3(
+		sin(hole_direction), 0.0, -cos(hole_direction),
+	)
+	var right := Vector3(
+		cos(hole_direction), 0.0, sin(hole_direction),
+	)
 
 	var spine: Array[Vector3] = [
 		Vector3(tee_pos.x, ground_height, tee_pos.z),
@@ -71,39 +86,81 @@ static func generate(
 		max_z = maxf(max_z, c.z)
 
 	terrain.origin = Vector3(min_x, 0.0, min_z)
-	terrain.grid_width = maxi(int(ceil((max_x - min_x) / cell_size)), 2)
-	terrain.grid_depth = maxi(int(ceil((max_z - min_z) / cell_size)), 2)
+	terrain.grid_width = maxi(
+		int(ceil((max_x - min_x) / cell_size)), 2,
+	)
+	terrain.grid_depth = maxi(
+		int(ceil((max_z - min_z) / cell_size)), 2,
+	)
 
 	var total_cells: int = terrain.grid_width * terrain.grid_depth
 	terrain.heights.resize(total_cells)
 	terrain.zones.resize(total_cells)
 
-	# --- Step 1: Noise-based heightmap ---
+	# Set biome on terrain so downstream systems can query it
+	terrain.biome = biome
+
+	# Resolve noise params from biome or defaults
+	var amplitude: float = biome.terrain_amplitude \
+		if biome else _DEFAULT_AMPLITUDE
+	var frequency: float = biome.terrain_frequency \
+		if biome else _DEFAULT_FREQUENCY
+	var octaves: int = biome.noise_octaves \
+		if biome else _DEFAULT_OCTAVES
+	var lacunarity: float = biome.noise_lacunarity \
+		if biome else _DEFAULT_LACUNARITY
+	var gain: float = biome.noise_gain \
+		if biome else _DEFAULT_GAIN
+	var fw_flatten: float = biome.fairway_flatten_strength \
+		if biome else _DEFAULT_FW_FLATTEN
+	var green_radius: float = biome.green_flatten_radius \
+		if biome else _DEFAULT_GREEN_RADIUS
+	var tee_radius: float = biome.tee_flatten_radius \
+		if biome else _DEFAULT_TEE_RADIUS
+	var min_h: float = biome.min_height \
+		if biome else _DEFAULT_MIN_HEIGHT
+	var max_h: float = biome.max_height \
+		if biome else _DEFAULT_MAX_HEIGHT
+
+	# --- Step 1: Paint zones (spatial rules only) ---
+	_paint_zones(terrain, tee_pos, cup_pos, fairway_width)
+
+	# --- Step 2: Noise-based heightmap ---
 	var noise := FastNoiseLite.new()
 	noise.seed = noise_seed
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	noise.frequency = NOISE_FREQUENCY
-	noise.fractal_octaves = NOISE_OCTAVES
-	noise.fractal_lacunarity = NOISE_LACUNARITY
-	noise.fractal_gain = NOISE_GAIN
+	noise.frequency = frequency
+	noise.fractal_octaves = octaves
+	noise.fractal_lacunarity = lacunarity
+	noise.fractal_gain = gain
 
-	_fill_noise(terrain, noise, ground_height, AMPLITUDE)
+	_fill_noise(terrain, noise, ground_height, amplitude)
 
-	# --- Step 2: Carve fairway corridor toward ground_height ---
-	_carve_fairway(terrain, spine, fairway_width, FAIRWAY_FLATTEN, ground_height)
+	# --- Step 3: Per-zone height modifiers ---
+	if biome:
+		_apply_zone_height_modifiers(terrain, biome, ground_height)
 
-	# --- Step 3: Flatten green and tee areas ---
+	# --- Step 4: Carve fairway corridor ---
+	_carve_fairway(
+		terrain, spine, fairway_width, fw_flatten, ground_height,
+	)
+
+	# --- Step 5: Flatten green and tee areas ---
 	var tee_flat := Vector3(tee_pos.x, 0.0, tee_pos.z)
 	var cup_flat := Vector3(cup_pos.x, 0.0, cup_pos.z)
-	_flatten_area(terrain, cup_flat, GREEN_FLATTEN_RADIUS, ground_height)
-	_flatten_area(terrain, tee_flat, TEE_FLATTEN_RADIUS, ground_height)
+	_flatten_area(terrain, cup_flat, green_radius, ground_height)
+	_flatten_area(terrain, tee_flat, tee_radius, ground_height)
 
-	# --- Step 4: Zone painting ---
-	_paint_zones(terrain, tee_pos, cup_pos, fairway_width)
+	# --- Step 6: Clamp heights ---
+	_clamp_heights(terrain, min_h, max_h)
 
 	# Set key positions with correct Y
-	terrain.tee_position = Vector3(tee_pos.x, ground_height, tee_pos.z)
-	terrain.cup_position = Vector3(cup_pos.x, ground_height, cup_pos.z)
+	terrain.tee_position = Vector3(
+		tee_pos.x, ground_height, tee_pos.z,
+	)
+	terrain.cup_position = Vector3(
+		cup_pos.x, ground_height, cup_pos.z,
+	)
 
 	return terrain
 
@@ -122,12 +179,47 @@ static func _fill_noise(
 	for gz: int in range(terrain.grid_depth):
 		for gx: int in range(terrain.grid_width):
 			var world: Vector3 = terrain.grid_to_world(gx, gz)
-			var h: float = ground_height + noise.get_noise_2d(world.x, world.z) * amplitude
-			terrain.heights[terrain._idx(gx, gz)] = h
+			var h: float = ground_height \
+				+ noise.get_noise_2d(world.x, world.z) * amplitude
+			terrain.heights[terrain.idx(gx, gz)] = h
 
 
-## Blend cells near the fairway spine toward the spine's intended elevation.
-## Uses quadratic falloff so the centre is flattest and edges blend into rough.
+## Apply per-zone hill/valley scaling, shape exponents, and height offsets.
+## Zones must already be painted before calling this.
+static func _apply_zone_height_modifiers(
+	terrain: RefCounted,
+	biome: RefCounted,
+	ground_height: float,
+) -> void:
+	for gz: int in range(terrain.grid_depth):
+		for gx: int in range(terrain.grid_width):
+			var cell_idx: int = terrain.idx(gx, gz)
+			var zone_type: int = terrain.zones[cell_idx]
+			var zone_def: ZoneDefinition = biome.get_zone_def(
+				zone_type,
+			)
+			if not zone_def:
+				continue
+
+			var h: float = terrain.heights[cell_idx]
+			var delta: float = h - ground_height
+
+			if delta > 0.0:
+				# Hill: apply shape exponent then scale
+				delta = pow(delta, zone_def.hill_shape) \
+					* zone_def.hill_scale
+			elif delta < 0.0:
+				# Valley: apply shape exponent then scale
+				delta = -pow(
+					absf(delta), zone_def.valley_shape,
+				) * zone_def.valley_scale
+
+			terrain.heights[cell_idx] = \
+				ground_height + delta + zone_def.height_offset
+
+
+## Blend cells near the fairway spine toward the spine's elevation.
+## Quadratic falloff: centre = full strength, edges blend into rough.
 static func _carve_fairway(
 	terrain: RefCounted,
 	spine: Array[Vector3],
@@ -137,43 +229,52 @@ static func _carve_fairway(
 ) -> void:
 	for gz: int in range(terrain.grid_depth):
 		for gx: int in range(terrain.grid_width):
-			var idx: int = terrain._idx(gx, gz)
+			var cell_idx: int = terrain.idx(gx, gz)
 			var world: Vector3 = terrain.grid_to_world(gx, gz)
 			var flat := Vector3(world.x, 0.0, world.z)
 
-			# Find distance to nearest spine segment and the parameter t along it
 			var min_dist: float = INF
 			var nearest_t: float = 0.0
 			var nearest_seg: int = 0
 
 			for i: int in range(spine.size() - 1):
 				var a := Vector3(spine[i].x, 0.0, spine[i].z)
-				var b := Vector3(spine[i + 1].x, 0.0, spine[i + 1].z)
-				var dist: float = _point_to_segment_distance_xz(flat, a, b)
+				var b := Vector3(
+					spine[i + 1].x, 0.0, spine[i + 1].z,
+				)
+				var dist: float = _point_to_segment_distance_xz(
+					flat, a, b,
+				)
 				if dist < min_dist:
 					min_dist = dist
 					nearest_seg = i
 					var ab := b - a
 					var ap := flat - a
 					var ab_len_sq: float = ab.length_squared()
-					nearest_t = clampf(ap.dot(ab) / maxf(ab_len_sq, 0.001), 0.0, 1.0)
+					nearest_t = clampf(
+						ap.dot(ab) / maxf(ab_len_sq, 0.001),
+						0.0, 1.0,
+					)
 
 			if min_dist < fairway_width:
-				# Intended height at nearest spine point
 				var target_h: float = lerpf(
-					spine[nearest_seg].y, spine[nearest_seg + 1].y, nearest_t
+					spine[nearest_seg].y,
+					spine[nearest_seg + 1].y,
+					nearest_t,
 				)
 				if target_h == 0.0:
 					target_h = ground_height
 
-				# Quadratic falloff: centre = full strength, edges = zero
 				var ratio: float = min_dist / fairway_width
-				var blend: float = flatten_strength * (1.0 - ratio * ratio)
-				terrain.heights[idx] = lerpf(terrain.heights[idx], target_h, blend)
+				var blend: float = \
+					flatten_strength * (1.0 - ratio * ratio)
+				terrain.heights[cell_idx] = lerpf(
+					terrain.heights[cell_idx], target_h, blend,
+				)
 
 
 ## Flatten terrain in a circular area (for green / tee).
-## Quadratic falloff: centre snaps to target_height, edge blends smoothly.
+## Quadratic falloff: centre snaps to target_height, edges blend.
 static func _flatten_area(
 	terrain: RefCounted,
 	center_xz: Vector3,
@@ -190,8 +291,23 @@ static func _flatten_area(
 			if dist_sq < radius_sq:
 				var ratio: float = sqrt(dist_sq) / radius
 				var blend: float = 1.0 - ratio * ratio
-				var idx: int = terrain._idx(gx, gz)
-				terrain.heights[idx] = lerpf(terrain.heights[idx], target_height, blend)
+				var cell_idx: int = terrain.idx(gx, gz)
+				terrain.heights[cell_idx] = lerpf(
+					terrain.heights[cell_idx],
+					target_height, blend,
+				)
+
+
+## Clamp all heights to biome min/max range.
+static func _clamp_heights(
+	terrain: RefCounted,
+	min_h: float,
+	max_h: float,
+) -> void:
+	for i: int in range(terrain.heights.size()):
+		terrain.heights[i] = clampf(
+			terrain.heights[i], min_h, max_h,
+		)
 
 
 # -------------------------------------------------------------------------
@@ -205,37 +321,44 @@ static func _paint_zones(
 	fairway_width: float,
 ) -> void:
 	var half_fw: float = fairway_width * 0.5
-	var green_radius_sq: float = 8.0 * 8.0  # GREEN_RADIUS = 8.0
-	var tee_radius_sq: float = 3.0 * 3.0    # tee box ~3m radius
+	var green_radius_sq: float = 8.0 * 8.0  # GREEN_RADIUS
+	var tee_radius_sq: float = 3.0 * 3.0    # tee box ~3m
 
 	var cup_flat := Vector3(cup_pos.x, 0.0, cup_pos.z)
 	var tee_flat := Vector3(tee_pos.x, 0.0, tee_pos.z)
 
 	for gz: int in range(terrain.grid_depth):
 		for gx: int in range(terrain.grid_width):
-			var idx: int = terrain._idx(gx, gz)
+			var cell_idx: int = terrain.idx(gx, gz)
 			var world: Vector3 = terrain.grid_to_world(gx, gz)
 			var flat := Vector3(world.x, 0.0, world.z)
 
-			var to_cup_sq: float = flat.distance_squared_to(cup_flat)
-			var to_tee_sq: float = flat.distance_squared_to(tee_flat)
+			var to_cup_sq: float = \
+				flat.distance_squared_to(cup_flat)
+			var to_tee_sq: float = \
+				flat.distance_squared_to(tee_flat)
 
 			if to_cup_sq <= green_radius_sq:
-				terrain.zones[idx] = TerrainDataScript.ZoneType.GREEN
+				terrain.zones[cell_idx] = \
+					TerrainDataScript.ZoneType.GREEN
 				continue
 
 			if to_tee_sq <= tee_radius_sq:
-				terrain.zones[idx] = TerrainDataScript.ZoneType.TEE
+				terrain.zones[cell_idx] = \
+					TerrainDataScript.ZoneType.TEE
 				continue
 
-			var dist_to_spine: float = _point_to_segment_distance_xz(
-				flat, tee_flat, cup_flat
-			)
+			var dist_to_spine: float = \
+				_point_to_segment_distance_xz(
+					flat, tee_flat, cup_flat,
+				)
 			if dist_to_spine <= half_fw:
-				terrain.zones[idx] = TerrainDataScript.ZoneType.FAIRWAY
+				terrain.zones[cell_idx] = \
+					TerrainDataScript.ZoneType.FAIRWAY
 				continue
 
-			terrain.zones[idx] = TerrainDataScript.ZoneType.ROUGH
+			terrain.zones[cell_idx] = \
+				TerrainDataScript.ZoneType.ROUGH
 
 
 # -------------------------------------------------------------------------
@@ -244,13 +367,23 @@ static func _paint_zones(
 
 ## Returns the XZ-plane distance from a point to a line segment.
 static func _point_to_segment_distance_xz(
-	point: Vector3, seg_a: Vector3, seg_b: Vector3
+	point: Vector3, seg_a: Vector3, seg_b: Vector3,
 ) -> float:
-	var ab := Vector3(seg_b.x - seg_a.x, 0.0, seg_b.z - seg_a.z)
-	var ap := Vector3(point.x - seg_a.x, 0.0, point.z - seg_a.z)
+	var ab := Vector3(
+		seg_b.x - seg_a.x, 0.0, seg_b.z - seg_a.z,
+	)
+	var ap := Vector3(
+		point.x - seg_a.x, 0.0, point.z - seg_a.z,
+	)
 	var ab_len_sq: float = ab.x * ab.x + ab.z * ab.z
 	if ab_len_sq < 0.001:
 		return ap.length()
-	var t: float = clampf((ap.x * ab.x + ap.z * ab.z) / ab_len_sq, 0.0, 1.0)
-	var closest := Vector3(seg_a.x + ab.x * t, 0.0, seg_a.z + ab.z * t)
-	return Vector3(point.x - closest.x, 0.0, point.z - closest.z).length()
+	var t: float = clampf(
+		(ap.x * ab.x + ap.z * ab.z) / ab_len_sq, 0.0, 1.0,
+	)
+	var closest := Vector3(
+		seg_a.x + ab.x * t, 0.0, seg_a.z + ab.z * t,
+	)
+	return Vector3(
+		point.x - closest.x, 0.0, point.z - closest.z,
+	).length()

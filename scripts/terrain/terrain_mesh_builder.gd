@@ -6,23 +6,29 @@
 ##   - ArrayMesh via SurfaceTool (two triangles per grid cell, vertex-coloured)
 ##   - ConcavePolygonShape3D from the same triangles for physics collision
 ##
-## Vertex colours come from zone type, giving natural blending at zone boundaries
-## because the GPU interpolates vertex colours across shared triangle edges.
+## Vertex colours come from the BiomeDefinition on TerrainData, giving natural
+## blending at zone boundaries because the GPU interpolates vertex colours
+## across shared triangle edges.
+##
+## UV coordinates are always generated (world XZ * uv_scale) so that a
+## material_override with textures works when plugged in.
 class_name TerrainMeshBuilder
 extends RefCounted
 
 const TerrainDataScript = preload("res://scripts/terrain/terrain_data.gd")
+const BiomeDefinitionScript = preload("res://resources/biome_definition.gd")
 
-# ---- Zone colours (meadow defaults — will come from BiomeDefinition in Phase 6) ----
-
-const FAIRWAY_COLOR  := Color(0.20, 0.55, 0.15)
-const GREEN_COLOR    := Color(0.15, 0.65, 0.15)
-const TEE_COLOR      := Color(0.85, 0.85, 0.85)
-const ROUGH_COLOR    := Color(0.30, 0.48, 0.12)
-const BUNKER_COLOR   := Color(0.85, 0.78, 0.50)
-const WATER_COLOR    := Color(0.15, 0.35, 0.65)
-const LAVA_COLOR     := Color(0.85, 0.25, 0.05)
-const OOB_COLOR      := Color(0.20, 0.35, 0.10)
+# Fallback colors when no biome is set (meadow defaults)
+const _FALLBACK_COLORS: Dictionary = {
+	0: Color(0.20, 0.55, 0.15),  # FAIRWAY
+	1: Color(0.30, 0.48, 0.12),  # ROUGH
+	2: Color(0.15, 0.65, 0.15),  # GREEN
+	3: Color(0.85, 0.85, 0.85),  # TEE
+	4: Color(0.85, 0.78, 0.50),  # BUNKER
+	5: Color(0.15, 0.35, 0.65),  # WATER
+	6: Color(0.85, 0.25, 0.05),  # LAVA
+	7: Color(0.20, 0.35, 0.10),  # OOB
+}
 
 
 # -------------------------------------------------------------------------
@@ -32,6 +38,9 @@ const OOB_COLOR      := Color(0.20, 0.35, 0.10)
 ## Build an ArrayMesh and ConcavePolygonShape3D from a TerrainData instance.
 ## Returns {"mesh": ArrayMesh, "shape": ConcavePolygonShape3D}.
 static func build(terrain: RefCounted) -> Dictionary:
+	var biome: RefCounted = terrain.biome  # BiomeDefinition or null
+	var uv_scale: float = biome.uv_scale if biome else 0.1
+
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
@@ -48,26 +57,38 @@ static func build(terrain: RefCounted) -> Dictionary:
 			var v01: Vector3 = terrain.grid_to_world(gx, gz + 1)
 			var v11: Vector3 = terrain.grid_to_world(gx + 1, gz + 1)
 
-			# Vertex colours from zone type
-			var c00: Color = _zone_color(terrain.zones[terrain._idx(gx, gz)])
-			var c10: Color = _zone_color(terrain.zones[terrain._idx(gx + 1, gz)])
-			var c01: Color = _zone_color(terrain.zones[terrain._idx(gx, gz + 1)])
-			var c11: Color = _zone_color(terrain.zones[terrain._idx(gx + 1, gz + 1)])
+			# Vertex colours from zone type (via biome or fallback)
+			var c00: Color = _zone_color(terrain.zones[terrain.idx(gx, gz)], biome)
+			var c10: Color = _zone_color(terrain.zones[terrain.idx(gx + 1, gz)], biome)
+			var c01: Color = _zone_color(terrain.zones[terrain.idx(gx, gz + 1)], biome)
+			var c11: Color = _zone_color(terrain.zones[terrain.idx(gx + 1, gz + 1)], biome)
+
+			# UV coordinates from world XZ position
+			var uv00 := Vector2(v00.x, v00.z) * uv_scale
+			var uv10 := Vector2(v10.x, v10.z) * uv_scale
+			var uv01 := Vector2(v01.x, v01.z) * uv_scale
+			var uv11 := Vector2(v11.x, v11.z) * uv_scale
 
 			# Triangle 1: v00 → v10 → v01
 			st.set_color(c00)
+			st.set_uv(uv00)
 			st.add_vertex(v00)
 			st.set_color(c10)
+			st.set_uv(uv10)
 			st.add_vertex(v10)
 			st.set_color(c01)
+			st.set_uv(uv01)
 			st.add_vertex(v01)
 
 			# Triangle 2: v10 → v11 → v01
 			st.set_color(c10)
+			st.set_uv(uv10)
 			st.add_vertex(v10)
 			st.set_color(c11)
+			st.set_uv(uv11)
 			st.add_vertex(v11)
 			st.set_color(c01)
+			st.set_uv(uv01)
 			st.add_vertex(v01)
 
 			# Collision faces (same triangles)
@@ -88,8 +109,11 @@ static func build(terrain: RefCounted) -> Dictionary:
 	return {"mesh": mesh, "shape": shape}
 
 
-## Creates a StandardMaterial3D that renders vertex colours as albedo.
-static func create_material() -> StandardMaterial3D:
+## Creates the default vertex-color material, or returns the biome's
+## material_override if one is set.
+static func create_material(biome: RefCounted = null) -> Material:
+	if biome and biome.material_override:
+		return biome.material_override
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
 	return mat
@@ -99,21 +123,7 @@ static func create_material() -> StandardMaterial3D:
 # Internals
 # -------------------------------------------------------------------------
 
-static func _zone_color(zone_byte: int) -> Color:
-	match zone_byte:
-		TerrainDataScript.ZoneType.FAIRWAY:
-			return FAIRWAY_COLOR
-		TerrainDataScript.ZoneType.GREEN:
-			return GREEN_COLOR
-		TerrainDataScript.ZoneType.TEE:
-			return TEE_COLOR
-		TerrainDataScript.ZoneType.BUNKER:
-			return BUNKER_COLOR
-		TerrainDataScript.ZoneType.WATER:
-			return WATER_COLOR
-		TerrainDataScript.ZoneType.LAVA:
-			return LAVA_COLOR
-		TerrainDataScript.ZoneType.OOB:
-			return OOB_COLOR
-		_:  # ROUGH or unknown
-			return ROUGH_COLOR
+static func _zone_color(zone_byte: int, biome: RefCounted) -> Color:
+	if biome:
+		return biome.get_color(zone_byte)
+	return _FALLBACK_COLORS.get(zone_byte, Color(0.30, 0.48, 0.12))

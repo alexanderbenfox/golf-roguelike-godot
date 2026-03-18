@@ -12,6 +12,7 @@ extends RefCounted
 const HoleGenConfigScript = preload("res://scripts/hole_gen_config.gd")
 const HeightmapGeneratorScript = preload("res://scripts/terrain/heightmap_generator.gd")
 const TerrainDataScript = preload("res://scripts/terrain/terrain_data.gd")
+const BiomeDefinitionScript = preload("res://resources/biome_definition.gd")
 
 
 # -------------------------------------------------------------------------
@@ -48,17 +49,26 @@ class HoleLayout:
 
 ## Generate a HoleLayout by consuming from the shared RNG.
 ## Caller must advance rng state consistently (call once per hole, in order).
-## Pass a HoleGenConfig to override generation parameters; null uses all defaults.
+## Pass a HoleGenConfig to override generation parameters; null uses defaults.
+## An explicit biome overrides config.biome (used by CourseManager's
+## biome_sequence to assign per-hole biomes).
 static func generate(
-	rng: RandomNumberGenerator, hole_number: int, par: int, config: HoleGenConfig = null
+	rng: RandomNumberGenerator,
+	hole_number: int,
+	par: int,
+	config: HoleGenConfig = null,
+	biome: BiomeDefinition = null,
+	cell_size: float = 2.0,
+	terrain_margin: float = 30.0,
 ) -> HoleLayout:
-	var cfg: HoleGenConfig = config if config != null else HoleGenConfigScript.new()
+	var cfg: HoleGenConfig = \
+		config if config != null else HoleGenConfigScript.new()
 
 	var layout := HoleLayout.new()
 	layout.hole_number = hole_number
 	layout.par = par
 
-	# Direction: scaled by direction_variety (0 = straight, 1 = full ±50°)
+	# Direction: scaled by direction_variety (0 = straight, 1 = ±50°)
 	var max_angle: float = (PI / 3.6) * cfg.direction_variety
 	layout.hole_direction = rng.randf_range(-max_angle, max_angle)
 
@@ -72,7 +82,10 @@ static func generate(
 	layout.hole_length = base_length * cfg.length_multiplier
 
 	# Cup position from tee
-	var dir := Vector3(sin(layout.hole_direction), 0.0, -cos(layout.hole_direction))
+	var dir := Vector3(
+		sin(layout.hole_direction), 0.0,
+		-cos(layout.hole_direction),
+	)
 	layout.cup_position = dir * layout.hole_length
 	layout.cup_position.y = 0.4
 
@@ -87,7 +100,14 @@ static func generate(
 
 	_generate_obstacles(rng, layout, cfg)
 
-	# Generate terrain heightmap + zones
+	# Resolve biome: explicit param > config > meadow default
+	var resolved_biome: BiomeDefinition = biome
+	if not resolved_biome and cfg.biome:
+		resolved_biome = cfg.biome
+	if not resolved_biome:
+		resolved_biome = BiomeDefinitionScript.create_meadow()
+
+	# Generate terrain heightmap + zones (biome set on terrain inside)
 	layout.terrain_data = HeightmapGeneratorScript.generate(
 		rng,
 		layout.tee_position,
@@ -95,9 +115,10 @@ static func generate(
 		layout.hole_direction,
 		layout.hole_length,
 		layout.fairway_width,
-		0.5,   # ground_height — top of current floor box
-		2.0,   # cell_size
-		30.0,  # margin
+		0.5,   # ground_height
+		cell_size,
+		terrain_margin,
+		resolved_biome,
 	)
 
 	return layout
