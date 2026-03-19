@@ -65,6 +65,14 @@ const TerrainDataScript = preload("res://scripts/terrain/terrain_data.gd")
 ## Height below which terrain becomes lava. Set to -999 to disable.
 @export_range(-20.0, 10.0, 0.1) var lava_height: float = -999.0
 
+@export_group("Wind")
+
+## Average wind speed (m/s). 0 = no wind for this biome.
+@export_range(0.0, 15.0, 0.1) var base_wind_strength: float = 0.0
+
+## Random ± range around base strength per hole.
+@export_range(0.0, 10.0, 0.1) var wind_variance: float = 0.0
+
 @export_group("Rendering")
 
 ## If set, replaces the default vertex-color material on the terrain mesh.
@@ -132,6 +140,8 @@ static func create_meadow() -> BiomeDefinition:
 	var biome := BiomeDefinition.new()
 	biome.biome_name = "Meadow"
 	biome.water_height = 0.0
+	biome.base_wind_strength = 1.0
+	biome.wind_variance = 1.5
 	# Noise defaults are already meadow-appropriate
 	biome.zones = [
 		_zone(
@@ -182,6 +192,8 @@ static func create_canyon() -> BiomeDefinition:
 	var biome := BiomeDefinition.new()
 	biome.biome_name = "Canyon"
 	biome.water_height = -0.5
+	biome.base_wind_strength = 2.5
+	biome.wind_variance = 2.0
 	biome.terrain_amplitude = 8.0
 	biome.terrain_frequency = 0.018
 	biome.noise_octaves = 4
@@ -240,6 +252,8 @@ static func create_canyon() -> BiomeDefinition:
 static func create_desert() -> BiomeDefinition:
 	var biome := BiomeDefinition.new()
 	biome.biome_name = "Desert"
+	biome.base_wind_strength = 4.0
+	biome.wind_variance = 3.0
 	biome.terrain_amplitude = 4.5
 	biome.terrain_frequency = 0.008
 	biome.noise_octaves = 3

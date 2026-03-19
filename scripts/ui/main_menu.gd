@@ -1,7 +1,7 @@
 class_name MainMenu
 extends Control
 
-const GAME_SCENE := "res://node_3d.tscn"
+const GAME_SCENE := "res://main.tscn"
 
 @onready var play_button: Button = $VBoxContainer/PlayButton
 

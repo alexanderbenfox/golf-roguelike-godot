@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3 uid="uid://ctonnkhe8q38j"]
 
-[ext_resource type="Script" uid="uid://unnpdl6vujf6" path="res://golf_ball.gd" id="1_0wkuo"]
+[ext_resource type="Script" uid="uid://unnpdl6vujf6" path="res://scripts/golf_ball.gd" id="1_0wkuo"]
 [ext_resource type="Material" uid="uid://ba8jiqaa401wp" path="res://materials/golf_ball.tres" id="2_g0ryd"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_r3fl7"]

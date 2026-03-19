@@ -37,10 +37,12 @@ class HoleLayout:
 	var fairway_width: float
 	var obstacles: Array[ObstacleDescriptor]
 	var terrain_data: RefCounted  # TerrainData — heightmap + zones for this hole
+	var wind: Vector3  # horizontal wind vector for this hole
 
 	func _init() -> void:
 		tee_position = Vector3.ZERO
 		obstacles = []
+		wind = Vector3.ZERO
 
 
 # -------------------------------------------------------------------------
@@ -106,6 +108,18 @@ static func generate(
 		resolved_biome = cfg.biome
 	if not resolved_biome:
 		resolved_biome = BiomeDefinitionScript.create_meadow()
+
+	# Generate per-hole wind from biome params + RNG
+	if resolved_biome and resolved_biome.base_wind_strength > 0.0:
+		var wind_angle: float = rng.randf() * TAU
+		var wind_strength: float = maxf(0.0,
+			resolved_biome.base_wind_strength + rng.randf_range(
+				-resolved_biome.wind_variance,
+				resolved_biome.wind_variance,
+			))
+		layout.wind = Vector3(
+			cos(wind_angle), 0.0, sin(wind_angle),
+		) * wind_strength
 
 	# Generate terrain heightmap + zones (biome set on terrain inside)
 	layout.terrain_data = HeightmapGeneratorScript.generate(

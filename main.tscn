@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://cdghvynsj8vwm"]
 
 [ext_resource type="Script" uid="uid://dhymcyyachjoi" path="res://scripts/main.gd" id="1_i5arm"]
-[ext_resource type="PackedScene" uid="uid://u2aftfk4jscx" path="res://power_meter.tscn" id="1_noarx"]
-[ext_resource type="PackedScene" uid="uid://ctonnkhe8q38j" path="res://golf_ball.tscn" id="2_a0tk4"]
+[ext_resource type="PackedScene" uid="uid://u2aftfk4jscx" path="res://scenes/ui/power_meter.tscn" id="1_noarx"]
+[ext_resource type="PackedScene" uid="uid://ctonnkhe8q38j" path="res://scenes/golf_ball.tscn" id="2_a0tk4"]
 [ext_resource type="Resource" uid="uid://5wmwcf0vj3k2" path="res://resources/default_golfer_stats.tres" id="2_cdqbm"]
-[ext_resource type="Script" uid="uid://qjo20cg20csh" path="res://camera_3d.gd" id="3_a0tk4"]
+[ext_resource type="Script" uid="uid://qjo20cg20csh" path="res://scripts/camera_3d.gd" id="3_a0tk4"]
 [ext_resource type="PackedScene" uid="uid://vbfwa6j6ip78" path="res://scenes/ui/score_ui.tscn" id="3_i5arm"]
 [ext_resource type="Script" uid="uid://clgofk0vig4am" path="res://resources/upgrade_definition.gd" id="3_s0gvp"]
 [ext_resource type="PackedScene" uid="uid://bkq6fyiy48t8k" path="res://scenes/ui/hole_complete_ui.tscn" id="4_jsk3o"]

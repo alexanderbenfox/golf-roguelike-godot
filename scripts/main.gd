@@ -11,6 +11,7 @@ const UpgradeScreenScript = preload("res://scripts/ui/upgrade_screen.gd")
 const GolferStatsScript = preload("res://resources/golfer_stats.gd")
 const ScorecardUIScript = preload("res://scripts/ui/scorecard_ui.gd")
 const DebugOverlayScript = preload("res://scripts/ui/debug_overlay.gd")
+const WindIndicatorScript = preload("res://scripts/ui/wind_indicator.gd")
 
 ## Starting stats for the golfer — edit in Inspector to tune defaults.
 @export var golfer_stats: Resource  # GolferStats
@@ -34,6 +35,7 @@ var _upgrade_screen: UpgradeScreen
 var _distance_label: Label
 var _scorecard: Control
 var _debug_overlay: DebugOverlay
+var _wind_indicator: WindIndicator
 
 
 func _ready() -> void:
@@ -69,6 +71,10 @@ func _ready() -> void:
 	# Scorecard
 	_scorecard = ScorecardUIScript.new()
 	$UICanvas.add_child(_scorecard)
+
+	# Wind indicator (top-right corner)
+	_wind_indicator = WindIndicatorScript.new()
+	$UICanvas.add_child(_wind_indicator)
 
 	# Debug overlay (toggle with F3)
 	_debug_overlay = DebugOverlayScript.new()
@@ -181,6 +187,8 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 	var my_player: PlayerState = \
 		game_state.players.get(network_manager.get_my_peer_id()) as PlayerState
 	ball.setup_physics_params(my_player, layout.terrain_data)
+	ball.set_wind(layout.wind)
+	_update_wind_indicator(layout.wind)
 
 	_show_hole_intro(_hole_number, _par)
 	turn_manager.start_hole(tee_position)
@@ -327,6 +335,11 @@ func _show_hazard_message(text: String, color: Color) -> void:
 	label.offset_top = 80.0
 	$UICanvas.add_child(label)
 	get_tree().create_timer(2.0).timeout.connect(label.queue_free)
+
+
+func _update_wind_indicator(wind: Vector3) -> void:
+	if _wind_indicator:
+		_wind_indicator.update_wind(wind)
 
 
 func _on_turn_manager_hole_complete() -> void:

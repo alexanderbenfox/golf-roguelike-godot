@@ -54,6 +54,10 @@ static func simulate_step(state: SimulationState, params: PhysicsParams, delta: 
 
 	new_state.velocity += gravity_vector * delta
 
+	# Wind — only affects airborne ball
+	if params.wind.length_squared() > 0.0 and not state.is_on_ground:
+		new_state.velocity += params.wind * delta
+
 	var damping_factor := 1.0 / (1.0 + params.linear_damp * delta)
 	new_state.velocity *= damping_factor
 

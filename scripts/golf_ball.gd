@@ -144,6 +144,9 @@ func setup_physics_params(
 	# Terrain heightmap (null = flat ground at ground_height)
 	sim_params.terrain = terrain
 
+	# Wind is set separately via set_wind() after hole layout is known
+	sim_params.wind = Vector3.ZERO
+
 	# Apply roguelike modifiers if a PlayerState is provided
 	if player:
 		sim_params.ball_bounce *= player.bounce_modifier
@@ -151,6 +154,12 @@ func setup_physics_params(
 		sim_params.gravity_scale *= player.gravity_scale
 		_power_multiplier = player.power_multiplier
 		_accuracy = player.accuracy
+
+
+## Set the wind vector for the current hole (called by Main after hole setup).
+func set_wind(wind: Vector3) -> void:
+	if sim_params:
+		sim_params.wind = wind
 
 
 # -------------------------------------------------------------------------

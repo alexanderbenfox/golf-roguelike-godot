@@ -4,7 +4,7 @@
 ## For now, singleplayer just transitions directly; multiplayer waits for players to be ready.
 extends Node
 
-const GAME_SCENE := "res://node_3d.tscn"
+const GAME_SCENE := "res://main.tscn"
 const NetworkManagerScript = preload("res://scripts/managers/network_manager.gd")
 
 @onready var lobby_ui: LobbyUI = $LobbyUI
