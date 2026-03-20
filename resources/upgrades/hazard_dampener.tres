@@ -1,0 +1,21 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" uid="uid://clgofk0vig4am" path="res://resources/upgrade_definition.gd" id="1"]
+[ext_resource type="Script" uid="uid://cksdm8u046p4e" path="res://resources/upgrade_effect.gd" id="2"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("2")
+stat = 5
+operation = 0
+value = 0.5
+hazard_target = &""
+hazard_param = &"intensity"
+hazard_duration = -1
+
+[resource]
+script = ExtResource("1")
+id = "hazard_dampener"
+display_name = "Hazard Dampener"
+description = "A reinforced ball casing absorbs impact. All hazards hit 50% softer for the rest of the run."
+rarity = 1
+effects = Array[ExtResource("2")]([SubResource("1")])

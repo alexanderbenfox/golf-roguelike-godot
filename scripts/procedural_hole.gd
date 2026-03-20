@@ -30,6 +30,11 @@ const CUP_HEIGHT     := 0.4
 var layout: HoleGenerator.HoleLayout
 var _cup_area: Area3D
 
+## Optional hazard modifier stack — set before calling build().
+## When set, modifies hazard descriptor values (intensity, timing, etc.)
+## before each hazard is instantiated.
+var hazard_modifier_stack: RefCounted  # HazardModifierStack
+
 # Bounds for OOB detection — set during _build_terrain()
 var _bounds_center: Vector3      # local offset from node origin (XZ plane)
 var _bounds_half_width: float    # perpendicular to hole direction
@@ -237,19 +242,17 @@ func _build_bunker(obs: HoleGenerator.ObstacleDescriptor) -> void:
 # -------------------------------------------------------------------------
 
 func _build_dynamic_hazards() -> void:
-	var RockSlideScript: GDScript = load("res://scripts/hazards/rock_slide_hazard.gd")
-	var GeyserScript: GDScript = load("res://scripts/hazards/sand_geyser_hazard.gd")
-
 	for desc: HoleGenerator.DynamicHazardDescriptor in layout.dynamic_hazards:
-		var hazard: Node3D
-		match desc.type:
-			HoleGenerator.DynamicHazardDescriptor.HazardType.ROCK_SLIDE:
-				hazard = RockSlideScript.new()
-			HoleGenerator.DynamicHazardDescriptor.HazardType.SAND_GEYSER:
-				hazard = GeyserScript.new()
-			_:
-				continue
+		if not desc.hazard_definition:
+			continue
+		var script: GDScript = desc.hazard_definition.hazard_script
+		if not script:
+			continue
 
+		# Apply hazard modifiers before instantiation
+		_apply_hazard_modifiers(desc)
+
+		var hazard: Node3D = script.new()
 		hazard.setup(desc)
 
 		# Place at terrain height if terrain data is available
@@ -260,6 +263,26 @@ func _build_dynamic_hazards() -> void:
 
 		hazard.hazard_activated.connect(_on_hazard_activated)
 		add_child(hazard)
+
+
+func _apply_hazard_modifiers(
+	desc: HoleGenerator.DynamicHazardDescriptor,
+) -> void:
+	if not hazard_modifier_stack:
+		return
+	var hname: StringName = desc.hazard_definition.hazard_name
+	desc.intensity = hazard_modifier_stack.get_effective_value(
+		hname, &"intensity", desc.intensity,
+	)
+	desc.cycle_period = hazard_modifier_stack.get_effective_value(
+		hname, &"cycle_period", desc.cycle_period,
+	)
+	desc.active_duration = hazard_modifier_stack.get_effective_value(
+		hname, &"active_duration", desc.active_duration,
+	)
+	desc.effect_radius = hazard_modifier_stack.get_effective_value(
+		hname, &"effect_radius", desc.effect_radius,
+	)
 
 
 func _on_hazard_activated(impulse: Vector3) -> void:

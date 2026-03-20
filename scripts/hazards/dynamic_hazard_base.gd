@@ -4,17 +4,23 @@
 ## Subclasses override _on_enter_idle(), _on_enter_warning(), _on_enter_active()
 ## to drive visuals, and implement _build_visuals() for initial geometry.
 ##
-## The Area3D collision shape is only enabled during the ACTIVE state.
-## When a ball enters the active zone, hazard_activated is emitted with
-## an impulse vector for the ball to apply.
+## Collision can run in two modes (set via hazard_definition.collision_mode):
+##   AREA:      fires when ball enters the Area3D (geysers, lightning)
+##   PROXIMITY: fires when ball is near a moving collider position (rock slides)
+##              Subclass overrides _get_collider_positions() to return positions.
 class_name DynamicHazardBase
 extends Node3D
 
 signal hazard_activated(impulse: Vector3)
+signal state_changed(hazard_name: StringName, new_state: State)
 
 enum State { IDLE, WARNING, ACTIVE }
 
-var hazard_type: int  # DynamicHazardDescriptor.HazardType
+## Mirrors HazardDefinition.CollisionMode to avoid cross-script dependency.
+const COLLISION_AREA: int = 0
+const COLLISION_PROXIMITY: int = 1
+
+var hazard_definition: Resource  # HazardDefinition
 var effect_radius: float
 var cycle_period: float
 var active_duration: float
@@ -27,10 +33,12 @@ var _state: State = State.IDLE
 var _elapsed: float = 0.0
 var _area: Area3D
 var _collision_shape: CollisionShape3D
+var _hit_bodies: Dictionary = {}
 
 
 func setup(descriptor: RefCounted) -> void:
-	hazard_type = descriptor.type
+	if "hazard_definition" in descriptor and descriptor.hazard_definition:
+		hazard_definition = descriptor.hazard_definition
 	effect_radius = descriptor.effect_radius
 	cycle_period = descriptor.cycle_period
 	active_duration = descriptor.active_duration
@@ -78,6 +86,8 @@ func _process(delta: float) -> void:
 
 	if new_state != _state:
 		_state = new_state
+		var hname: StringName = hazard_definition.hazard_name \
+			if hazard_definition else &""
 		match _state:
 			State.IDLE:
 				_collision_shape.disabled = true
@@ -87,16 +97,50 @@ func _process(delta: float) -> void:
 				_on_enter_warning()
 			State.ACTIVE:
 				_collision_shape.disabled = false
+				_hit_bodies.clear()
 				_on_enter_active()
+		state_changed.emit(hname, _state)
 
 	_update_visuals(delta, _state, phase)
 
+	if _state == State.ACTIVE and _get_collision_mode() == \
+			COLLISION_PROXIMITY:
+		_check_proximity()
+
 
 func _on_body_entered(body: Node3D) -> void:
+	if _get_collision_mode() == COLLISION_PROXIMITY:
+		return
 	if _state != State.ACTIVE:
 		return
+	_fire_impulse(body)
+
+
+func _fire_impulse(body: Node3D) -> void:
 	var impulse := _compute_impulse(body.global_position)
 	hazard_activated.emit(impulse)
+
+
+func _check_proximity() -> void:
+	var hit_radius: float = 2.0
+	if hazard_definition and "proximity_hit_radius" in hazard_definition:
+		hit_radius = hazard_definition.proximity_hit_radius
+	var collider_positions: Array[Vector3] = _get_collider_positions()
+	for body: Node3D in _area.get_overlapping_bodies():
+		if body.get_instance_id() in _hit_bodies:
+			continue
+		var body_pos: Vector3 = body.global_position
+		for cpos: Vector3 in collider_positions:
+			if body_pos.distance_to(cpos) < hit_radius:
+				_hit_bodies[body.get_instance_id()] = true
+				_fire_impulse(body)
+				break
+
+
+func _get_collision_mode() -> int:
+	if hazard_definition:
+		return hazard_definition.collision_mode
+	return COLLISION_AREA
 
 
 # ---- Subclass overrides ----
@@ -124,3 +168,8 @@ func _update_visuals(_delta: float, _current_state: State, _phase: float) -> voi
 ## Compute the impulse to apply to a ball at the given position.
 func _compute_impulse(_ball_pos: Vector3) -> Vector3:
 	return Vector3.ZERO
+
+## Return world positions of moving colliders for PROXIMITY mode.
+## Override in subclasses with moving hazard elements (e.g. boulders).
+func _get_collider_positions() -> Array[Vector3]:
+	return [global_position]

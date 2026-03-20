@@ -2,6 +2,13 @@
 
 [ext_resource type="Script" uid="uid://c3c6yhmn05vye" path="res://resources/biome_definition.gd" id="1"]
 [ext_resource type="Script" uid="uid://cjg0bg5b8i6pa" path="res://resources/zone_definition.gd" id="2"]
+[ext_resource type="Script" uid="uid://b063pdowwu7n1" path="res://resources/hazard_entry.gd" id="3_hentry"]
+[ext_resource type="Resource" path="res://resources/hazards/sand_geyser.tres" id="4_geyser"]
+
+[sub_resource type="Resource" id="he_geyser"]
+script = ExtResource("3_hentry")
+definition = ExtResource("4_geyser")
+density = 1.5
 
 [sub_resource type="Resource" id="z0"]
 script = ExtResource("2")
@@ -90,7 +97,7 @@ max_height = 10.0
 plateau_factor = 0.4
 fairway_flatten_strength = 0.9
 green_flatten_radius = 8.0
-dynamic_hazard_density = 1.5
+hazard_definitions = Array[Resource]([SubResource("he_geyser")])
 base_wind_strength = 4.0
 wind_variance = 3.0
 slope_color = Color(0.5, 0.4, 0.28, 1)

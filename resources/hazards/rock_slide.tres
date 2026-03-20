@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="HazardDefinition" format=3 uid="uid://clbcorrx32qtb"]
+
+[ext_resource type="Script" uid="uid://clhslywl83guk" path="res://resources/hazard_definition.gd" id="1"]
+[ext_resource type="Script" uid="uid://75xxtjb6y5p3" path="res://scripts/hazards/rock_slide_hazard.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+hazard_name = &"rock_slide"
+hazard_script = ExtResource("2")
+min_t = 0.3
+max_t = 0.7
+perpendicular = true
+count_divisor = 20.0
+max_count = 6
+cycle_period_range = Vector2(1, 5)
+active_duration_range = Vector2(1, 2)
+warning_duration = 1.0
+base_intensity = 30.0
+intensity_variance = 0.0
+effect_radius = 9.0
+effect_radius_fairway_factor = 1.0
+collision_mode = 1
+proximity_hit_radius = 3.0

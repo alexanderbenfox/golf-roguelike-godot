@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="HazardDefinition" format=3 uid="uid://d31qu6n6kbkof"]
+
+[ext_resource type="Script" uid="uid://clhslywl83guk" path="res://resources/hazard_definition.gd" id="1"]
+[ext_resource type="Script" uid="uid://335p5sb7lwo8" path="res://scripts/hazards/sand_geyser_hazard.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+hazard_name = &"sand_geyser"
+hazard_script = ExtResource("2")
+placement_strategy = 1
+lateral_offset = 0.4
+count_divisor = 60.0
+max_count = 4
+cycle_period_range = Vector2(5, 8)
+active_duration_range = Vector2(1.5, 2.5)
+warning_duration = 2.0
+base_intensity = 13.0
+effect_radius = 3.25

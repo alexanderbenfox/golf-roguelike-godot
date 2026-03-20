@@ -1,0 +1,21 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" uid="uid://clgofk0vig4am" path="res://resources/upgrade_definition.gd" id="1"]
+[ext_resource type="Script" uid="uid://cksdm8u046p4e" path="res://resources/upgrade_effect.gd" id="2"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("2")
+stat = 5
+operation = 0
+value = 1.5
+hazard_target = &""
+hazard_param = &"cycle_period"
+hazard_duration = 3
+
+[resource]
+script = ExtResource("1")
+id = "slow_burn"
+display_name = "Slow Burn"
+description = "Hazard timing circuits overheat and slow down. All hazards cycle 50% slower for 3 holes."
+rarity = 0
+effects = Array[ExtResource("2")]([SubResource("1")])

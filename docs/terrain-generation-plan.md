@@ -493,11 +493,13 @@ scripts/
 | **5** | Water/lava hazards + hazard plane rendering + penalty strokes | **Complete** |
 | **6** | Terrain textures (splatmap shader) + slope-dependent texturing + run-based biome progression | **Partial** — .tres biomes done, slope coloring & shader & run manager deferred |
 | **7** | Wind mechanics + wind UI | **Complete** |
-| **8** | Dynamic/timed hazards (geysers, boulders, lightning) | Planned |
+| **8** | Dynamic/timed hazards (geysers, rock slides) | **Partial** — Canyon rock slides + Desert sand geysers implemented |
+| **8b** | Extensible hazard toolchain (HazardDefinition resource, generic placement, collision modes, visual components, modifier hooks) | Planned |
 | **9** | Hazard mitigation upgrades (Stone Skipper, Heat Rising) | Planned |
 | **10** | Advanced routing + terrain archetypes (doglegs, island archipelago, valley corridors) | Planned |
 | **11** | Terrain modifiers — roguelike integration (TerrainModifierStack, override cards) | Planned |
 | **12** | Seed system — display UI, sharing codes, seed entry, saving, sub-RNG refactor, checksums | **Partial** — RNG threading done, UI & verification not started |
+| **13** | Scenery & prop placement (data-driven SceneryDefinition, per-biome scatter, MultiMesh instancing) | Planned |
 
 Each phase is independently testable and the game stays playable throughout.
 
@@ -523,19 +525,363 @@ Each phase is independently testable and the game stays playable throughout.
 
 ## Future Work
 
-### Phase 8: Dynamic/Timed Hazards
-Per-biome hazards escalating with difficulty:
-- **Meadow**: None (pure golf)
-- **Canyon**: Periodic rock slides
-- **Desert**: Sand geysers on timer
+### Phase 8: Dynamic/Timed Hazards (Partially Complete)
+
+Core state machine and two hazard types are implemented:
+- **Canyon**: Rock slides (rolling boulders with proximity collision)
+- **Desert**: Sand geysers (erupting sand column with area collision)
+
+Density configurable via `BiomeDefinition.dynamic_hazard_density`.
+
+See [terrain-generation-technical.md](terrain-generation-technical.md) for full implementation details.
+
+**Remaining per-biome hazards:**
 - **Storm Forest**: Lightning strikes
 - **Volcanic**: Rolling boulders, lava geysers
 - **Urban**: Timed barriers/gates
 
-Density configurable via `BiomeDefinition` exports:
+### Phase 8b: Extensible Hazard Toolchain
+
+The current hazard system works but is rigid — adding a new hazard type requires touching an enum, a placement function, a subclass script, and the scene builder's loader. This phase redesigns the system so hazards are **data-driven and composable**, making it easy to add new types, let roguelike modifiers alter hazard behavior, and animate hazards with reusable building blocks.
+
+#### Problems with the Current Approach
+
+| Issue | Where | Impact |
+|-------|-------|--------|
+| Hardcoded `HazardType` enum | `DynamicHazardDescriptor` | Adding a type means updating enum + match statements in generator + scene builder |
+| Placement logic baked into `HoleGenerator` | `_place_rock_slides()`, `_place_sand_geysers()` | Each hazard type needs its own placement function with duplicated logic |
+| Visuals built entirely in code | `_build_visuals()` overrides | No way to preview, tweak in editor, or hot-swap visual elements |
+| Collision model varies per subclass | Rock slide overrides `_on_body_entered`, geyser uses base | No consistent pattern; new hazards have to reinvent collision strategy |
+| No modifier hooks | — | Roguelike cards can't alter hazard timing, intensity, or visuals mid-run |
+
+#### Design: HazardDefinition Resource
+
+Replace the hardcoded enum with a **Resource-driven** system. Each hazard type becomes a `HazardDefinition` resource that describes its behavior declaratively, similar to how `BiomeDefinition` drives terrain.
+
 ```gdscript
-@export_range(0.0, 3.0) var dynamic_hazard_density: float = 1.0
+class_name HazardDefinition
+extends Resource
+
+@export var hazard_name: StringName              # "rock_slide", "sand_geyser", "lightning_strike"
+@export var hazard_script: GDScript              # the Node3D subclass to instantiate
+
+@export_group("Placement")
+@export var placement_strategy: PlacementStrategy = PlacementStrategy.ALONG_FAIRWAY
+@export_range(0.1, 1.0) var min_t: float = 0.2  # earliest placement along hole (0=tee, 1=cup)
+@export_range(0.1, 1.0) var max_t: float = 0.8  # latest placement along hole
+@export var lateral_offset: float = 0.0          # max offset from fairway center (0 = on spine)
+@export var perpendicular: bool = false           # orient perpendicular to fairway (rock slides)
+@export_range(20.0, 100.0) var count_divisor: float = 50.0  # hole_length / divisor * density = count
+@export_range(0, 6) var max_count: int = 3
+
+@export_group("Timing")
+@export var cycle_period_range: Vector2 = Vector2(6.0, 10.0)
+@export var active_duration_range: Vector2 = Vector2(2.0, 3.0)
+@export var warning_duration: float = 1.5
+
+@export_group("Effect")
+@export var base_intensity: float = 8.0
+@export var effect_radius: float = 5.0
+@export var collision_mode: CollisionMode = CollisionMode.AREA  # AREA or PROXIMITY
+
+enum PlacementStrategy { ALONG_FAIRWAY, ON_FAIRWAY, RANDOM_IN_BOUNDS }
+enum CollisionMode { AREA, PROXIMITY }
 ```
+
+**What this buys us:**
+- New hazard = new .tres file + one GDScript subclass for visuals. No enum changes, no generator changes, no scene builder changes.
+- Placement is generic — the generator iterates `biome.hazard_definitions` and places each using the resource's `placement_strategy` params.
+- Timing ranges are tweakable in the Inspector per hazard type.
+- Collision mode is declared, not reimplemented per subclass.
+
+#### Design: Biome → Hazard Binding
+
+Replace the single `dynamic_hazard_density` float with a list of hazard definitions per biome:
+
+```gdscript
+# In BiomeDefinition:
+@export var hazard_definitions: Array[HazardEntry] = []
+
+class HazardEntry:
+    extends Resource
+    @export var definition: HazardDefinition
+    @export_range(0.0, 3.0) var density: float = 1.0  # per-hazard density multiplier
+```
+
+This allows a single biome to have **multiple hazard types** (e.g., Volcanic could have both rolling boulders and lava geysers), each with independent density. The existing `dynamic_hazard_density` becomes a global multiplier or is removed.
+
+Example .tres:
+```
+# canyon.tres
+hazard_definitions:
+  [0]: { definition: rock_slide.tres, density: 1.0 }
+  [1]: { definition: falling_rocks.tres, density: 0.5 }  # future: small debris alongside slides
+
+# desert.tres
+hazard_definitions:
+  [0]: { definition: sand_geyser.tres, density: 1.5 }
+
+# volcanic.tres (future)
+hazard_definitions:
+  [0]: { definition: lava_geyser.tres, density: 1.0 }
+  [1]: { definition: rolling_boulder.tres, density: 0.8 }
+```
+
+#### Design: Generic Placement in HoleGenerator
+
+Replace `_place_rock_slides()` / `_place_sand_geysers()` with one generic function:
+
+```gdscript
+static func _place_hazards_from_definition(
+    rng: RandomNumberGenerator,
+    layout: HoleLayout,
+    dir: Vector3,
+    right: Vector3,
+    entry: HazardEntry,
+    min_from_tee: float,
+    min_from_cup: float,
+) -> void:
+    var def: HazardDefinition = entry.definition
+    var count := clampi(
+        int(layout.hole_length / def.count_divisor * entry.density),
+        0, def.max_count,
+    )
+    for i in range(count):
+        var h := DynamicHazardDescriptor.new()
+        h.hazard_definition = def  # reference to the resource, replaces enum type
+
+        var t := rng.randf_range(def.min_t, def.max_t)
+        var along_dist := clampf(t * layout.hole_length, min_from_tee, layout.hole_length - min_from_cup)
+        var pos: Vector3 = dir * along_dist
+
+        match def.placement_strategy:
+            HazardDefinition.PlacementStrategy.ALONG_FAIRWAY:
+                pass  # centered on fairway spine
+            HazardDefinition.PlacementStrategy.ON_FAIRWAY:
+                var lateral := rng.randf_range(-def.lateral_offset, def.lateral_offset)
+                pos += right * lateral * layout.fairway_width
+            HazardDefinition.PlacementStrategy.RANDOM_IN_BOUNDS:
+                pos += right * rng.randf_range(-1.0, 1.0) * layout.fairway_width * 1.5
+
+        h.world_position = pos
+        h.direction = right if def.perpendicular else Vector3.UP
+        h.effect_radius = def.effect_radius
+        h.cycle_period = rng.randf_range(def.cycle_period_range.x, def.cycle_period_range.y)
+        h.active_duration = rng.randf_range(def.active_duration_range.x, def.active_duration_range.y)
+        h.warning_duration = def.warning_duration
+        h.phase_offset = rng.randf() * h.cycle_period
+        h.intensity = def.base_intensity
+        layout.dynamic_hazards.append(h)
+```
+
+The generator loop becomes:
+```gdscript
+for entry in biome.hazard_definitions:
+    _place_hazards_from_definition(rng, layout, dir, right, entry, ...)
+```
+
+#### Design: Collision Modes in DynamicHazardBase
+
+Formalize the two collision patterns that emerged from rock slides vs geysers:
+
+```gdscript
+# In DynamicHazardBase:
+enum CollisionMode { AREA, PROXIMITY }
+var collision_mode: CollisionMode = CollisionMode.AREA
+
+func _on_body_entered(body: Node3D) -> void:
+    if collision_mode == CollisionMode.PROXIMITY:
+        return  # handled in _process via _check_proximity()
+    if _state != State.ACTIVE:
+        return
+    _fire_impulse(body)
+
+func _process(delta: float) -> void:
+    # ... state machine ...
+    _update_visuals(delta, _state, phase)
+    if _state == State.ACTIVE and collision_mode == CollisionMode.PROXIMITY:
+        _check_proximity()
+
+func _check_proximity() -> void:
+    for body in _area.get_overlapping_bodies():
+        if body.get_instance_id() in _hit_bodies:
+            continue
+        for collider_pos in _get_collider_positions():
+            if body.global_position.distance_to(collider_pos) < _proximity_radius:
+                _hit_bodies[body.get_instance_id()] = true
+                _fire_impulse(body)
+                break
+
+## Subclasses with PROXIMITY mode override this to return moving hazard positions.
+func _get_collider_positions() -> Array[Vector3]:
+    return [global_position]
+```
+
+Rock slides return boulder positions from `_get_collider_positions()`. Geysers keep `AREA` mode. New hazard types pick whichever mode fits — the base class handles both.
+
+#### Design: Composable Visual Components
+
+Current hazards build all visuals from scratch in `_build_visuals()`. For faster iteration and reuse, extract common visual patterns into helper components:
+
+```gdscript
+# scripts/hazards/components/hazard_warning_disc.gd
+class_name HazardWarningDisc extends MeshInstance3D
+## Reusable pulsing warning indicator on the ground.
+
+var _material: StandardMaterial3D
+var _idle_color: Color
+var _active_color: Color
+
+func setup(radius: float, idle_color: Color, active_color: Color, shape: Mesh = null) -> void:
+    ...
+
+func set_state(state: DynamicHazardBase.State, pulse_time: float) -> void:
+    # Handles idle/warning pulse/active color transitions
+    ...
+```
+
+```gdscript
+# scripts/hazards/components/hazard_projectile_group.gd
+class_name HazardProjectileGroup extends Node3D
+## Manages a group of animated projectiles (boulders, fireballs, debris).
+
+@export var projectile_mesh: Mesh
+@export var count: int = 3
+@export var speed_variance: float = 0.15
+@export var stagger: float = 0.3
+@export var travel_distance: float = 30.0
+@export var bob_amplitude: float = 0.2
+@export var spin_speed: float = 4.0
+@export var hit_radius: float = 2.0
+
+func get_projectile_positions() -> Array[Vector3]:
+    ...  # for PROXIMITY collision mode
+
+func animate(active_time: float, duration: float, direction: Vector3) -> void:
+    ...  # drives all projectile movement + spin
+```
+
+```gdscript
+# scripts/hazards/components/hazard_particle_column.gd
+class_name HazardParticleColumn extends GPUParticles3D
+## Configurable eruption/column particle effect.
+
+func setup(radius: float, color: Color, particle_count: int = 40) -> void:
+    ...
+
+func set_eruption_strength(min_vel: float, max_vel: float) -> void:
+    ...  # scales between idle wisps and full eruption
+```
+
+With these components, a new hazard subclass becomes very short:
+
+```gdscript
+# Example: LavaGeyserHazard — reuses disc + particle column
+class_name LavaGeyserHazard extends DynamicHazardBase
+
+var _disc: HazardWarningDisc
+var _column: HazardParticleColumn
+
+func _build_visuals() -> void:
+    _disc = HazardWarningDisc.new()
+    _disc.setup(effect_radius, Color(0.4, 0.1, 0.0, 0.7), Color(0.9, 0.3, 0.0, 0.9))
+    add_child(_disc)
+    _column = HazardParticleColumn.new()
+    _column.setup(effect_radius, Color(0.95, 0.4, 0.05, 0.8))
+    add_child(_column)
+
+func _on_enter_idle() -> void:
+    _disc.set_state(State.IDLE, 0.0)
+    _column.set_eruption_strength(0.0, 0.0)
+
+func _on_enter_warning() -> void:
+    _column.set_eruption_strength(1.0, 3.0)
+
+func _on_enter_active() -> void:
+    _disc.set_state(State.ACTIVE, 0.0)
+    _column.set_eruption_strength(8.0, 14.0)
+
+func _update_visuals(delta: float, current_state: State, _phase: float) -> void:
+    if current_state == State.WARNING:
+        _disc.set_state(State.WARNING, _elapsed)
+
+func _compute_impulse(ball_pos: Vector3) -> Vector3:
+    return Vector3.UP * intensity * 1.2  # stronger upward than sand geyser
+```
+
+#### Design: Modifier Hooks
+
+Roguelike modifiers should be able to alter hazards mid-run. The `HazardDefinition` resource is immutable (shared across runs), so modifiers write to a **runtime override layer**:
+
+```gdscript
+# In the hazard modifier stack (analogous to TerrainModifierStack):
+class HazardModifier:
+    var target_hazard: StringName    # &"rock_slide", &"sand_geyser", or &"" for all
+    var param: StringName            # &"intensity", &"cycle_period", &"active_duration", &"effect_radius"
+    var operation: int               # MULTIPLY or ADD
+    var value: float
+    var holes_remaining: int         # -1 = rest of run
+```
+
+Applied at hazard setup time:
+```gdscript
+# In ProceduralHole._build_dynamic_hazards():
+for desc in layout.dynamic_hazards:
+    # Apply any active hazard modifiers before setup
+    desc.intensity = modifier_stack.get_effective_value(
+        desc.hazard_definition.hazard_name, &"intensity", desc.intensity
+    )
+    desc.cycle_period = modifier_stack.get_effective_value(
+        desc.hazard_definition.hazard_name, &"cycle_period", desc.cycle_period
+    )
+    ...
+```
+
+Example upgrade cards:
+| Card | Target | Param | Op | Value | Fantasy |
+|------|--------|-------|----|-------|---------|
+| Hazard Dampener | all | `intensity` | MULTIPLY | 0.5 | "Hazards hit softer" |
+| Slow Burn | all | `cycle_period` | MULTIPLY | 1.5 | "Hazards fire less often" |
+| Boulder Breaker | `rock_slide` | `intensity` | MULTIPLY | 0.0 | "Immune to rock slides" |
+| Geyser Rider | `sand_geyser` | `intensity` | MULTIPLY | 0.3 | "Ride the eruption" (small boost instead of big launch) |
+| Chaos Mode | all | `active_duration` | MULTIPLY | 2.0 | Risk/reward: longer active windows |
+
+#### Design: Audio Hooks
+
+Each state transition should trigger audio. Rather than hardcoding audio in every subclass, the base class emits signals that an audio manager can bind to:
+
+```gdscript
+# In DynamicHazardBase:
+signal state_changed(hazard_name: StringName, new_state: State)
+
+# In state transition:
+state_changed.emit(hazard_definition.hazard_name, _state)
+```
+
+An `AudioManager` (or the hazard itself) maps `(hazard_name, state)` → sound effect. The HazardDefinition resource can optionally carry audio references:
+
+```gdscript
+@export_group("Audio")
+@export var sfx_warning: AudioStream
+@export var sfx_active: AudioStream
+@export var sfx_hit: AudioStream
+```
+
+#### Implementation Phases
+
+| Step | What | Depends On |
+|------|------|-----------|
+| 8b-1 | `HazardDefinition` resource + `HazardEntry` on BiomeDefinition | — |
+| 8b-2 | Generic `_place_hazards_from_definition()` in HoleGenerator | 8b-1 |
+| 8b-3 | Collision modes (AREA / PROXIMITY) in DynamicHazardBase | — |
+| 8b-4 | Migrate rock slide + sand geyser to HazardDefinition .tres files | 8b-1, 8b-2, 8b-3 |
+| 8b-5 | Visual components (warning disc, projectile group, particle column) | — |
+| 8b-6 | Migrate rock slide + geyser visuals to use components | 8b-5 |
+| 8b-7 | HazardModifier stack + upgrade card integration | 8b-4, Phase 11 |
+| 8b-8 | Audio hooks (state_changed signal + HazardDefinition audio refs) | 8b-4 |
+| 8b-9 | New hazard types (lightning strike, lava geyser, timed barriers) | 8b-4, 8b-5 |
+
+Steps 8b-1 through 8b-4 are the critical path — they refactor the existing system without changing behavior. Steps 8b-5+ are additive improvements.
 
 ### Phase 9: Hazard Mitigation Upgrades
 New `UpgradeEffect` stat entries:
@@ -621,6 +967,142 @@ Archetypes can combine with any biome for distinct feels:
 | **Continental** | Classic rolling hills | Ridge walks | Dune fields | Craggy plateaus |
 | **Island** | Tropical islands (palm trees, blue water) | Rocky sea stacks | Oasis islands in sand sea | Lava-surrounded rock islands |
 | **Valley Corridor** | Rolling meadow valleys | Deep slot canyons | Winding wadis between dunes | Lava river corridors |
+
+### Phase 13: Scenery & Prop Placement
+
+Replace the placeholder cylinder trees and flat-disc bunkers with a data-driven scenery system that scatters biome-appropriate 3D objects across the terrain.
+
+#### Goals
+- **Data-driven:** Adding a new prop (cactus, rock cluster, dead tree) requires only a new `.tres` resource — no code changes
+- **Biome-aware:** Each biome defines its own scenery palette and densities
+- **Zone-respecting:** Props never spawn on greens, tees, or bunkers; trees stay out of the fairway corridor; rocks can appear in rough/OOB
+- **Deterministic:** Placement uses the existing seeded RNG chain so identical seeds produce identical scenery
+- **Performant:** High-count props (grass tufts, small rocks) use MultiMeshInstance3D; unique props (large trees) can be individual scenes
+
+#### SceneryDefinition Resource (`resources/scenery_definition.gd`)
+
+Core data resource for a single scenery type. Follows the same Resource pattern as HazardDefinition.
+
+```gdscript
+class_name SceneryDefinition extends Resource
+
+enum PlacementZone { ROUGH, OOB, FAIRWAY_EDGE, WATER_EDGE, ANY_LAND }
+enum PlacementMethod { SCATTER, ALONG_FAIRWAY, CLUSTER }
+
+@export var scenery_name: StringName
+@export var scene: PackedScene                    # the 3D model/scene to instantiate
+@export var mesh_for_multimesh: Mesh              # if set, use MultiMeshInstance3D instead of scene instances
+
+@export_group("Placement")
+@export var placement_zone: PlacementZone = PlacementZone.ROUGH
+@export var placement_method: PlacementMethod = PlacementMethod.SCATTER
+@export_range(0.0, 1.0) var density: float = 0.5 # base density (scaled by biome entry)
+@export_range(1.0, 20.0) var min_spacing: float = 4.0  # minimum distance between instances
+@export_range(0.0, 1.0) var max_slope: float = 0.6     # steeper terrain = no placement (0=flat only, 1=any slope)
+@export_range(0.0, 50.0) var fairway_margin: float = 3.0  # min distance from fairway center for ROUGH/OOB types
+
+@export_group("Scale & Rotation")
+@export var base_scale: Vector3 = Vector3.ONE
+@export_range(0.0, 1.0) var scale_variance: float = 0.2  # ±fraction of base_scale
+@export var random_y_rotation: bool = true                # randomize rotation around Y
+@export var align_to_terrain_normal: bool = false          # tilt to match surface slope
+
+@export_group("Collision")
+@export var has_collision: bool = true            # whether this prop blocks the ball
+@export_range(0.1, 5.0) var collision_radius: float = 1.0
+@export_range(0.1, 10.0) var collision_height: float = 3.0
+```
+
+#### SceneryEntry Resource (`resources/scenery_entry.gd`)
+
+Pairs a SceneryDefinition with a per-biome density multiplier (same pattern as HazardEntry).
+
+```gdscript
+class_name SceneryEntry extends Resource
+
+@export var definition: SceneryDefinition
+@export_range(0.0, 5.0) var density_multiplier: float = 1.0
+```
+
+#### BiomeDefinition Changes
+
+```gdscript
+@export var scenery_definitions: Array[Resource] = []  # Array[SceneryEntry]
+```
+
+#### Placement Algorithm (in HoleGenerator)
+
+Scenery placement runs after obstacle placement, using a dedicated sub-RNG:
+
+1. **Build exclusion zones** — collect all existing object positions (tee, cup, bunkers, hazards) plus zone masks for green/tee/bunker cells
+2. **For each SceneryEntry in the biome:**
+   a. Compute target count: `entry.density_multiplier * definition.density * (terrain_area / 100.0)`
+   b. Use Poisson-disc sampling (seeded) with `min_spacing` to generate candidate positions
+   c. For each candidate:
+      - Check zone type at position matches `placement_zone` rules
+      - Check slope at position ≤ `max_slope`
+      - Check distance from fairway center ≥ `fairway_margin` (for non-fairway-edge types)
+      - Check no overlap with exclusion zones
+      - If all pass → add to placement list with randomized scale and rotation
+3. **Output** `SceneryDescriptor` entries on `HoleLayout` (position, rotation, scale, definition reference)
+
+```gdscript
+class SceneryDescriptor:
+    var scenery_definition: Resource  # SceneryDefinition
+    var world_position: Vector3
+    var rotation_y: float
+    var scale: Vector3
+```
+
+#### Scene Building (in ProceduralHole)
+
+`_build_scenery()` iterates layout scenery descriptors and instantiates props:
+
+- **MultiMesh path** (when `mesh_for_multimesh` is set): Group all instances of the same definition, create a single MultiMeshInstance3D with per-instance transforms. Best for grass tufts, small rocks, flowers — anything with 20+ instances per hole.
+- **Scene path** (when `scene` is set): Instance the PackedScene for each placement. Best for large unique props (big trees, rock formations, buildings) that may have their own animations or LOD.
+- **Collision:** If `has_collision`, attach a StaticBody3D with a CylinderShape3D using the definition's `collision_radius` and `collision_height`. For MultiMesh props, collision bodies are still individual (MultiMesh doesn't support physics).
+
+#### Placement Methods
+
+| Method | Description | Use case |
+|--------|-------------|----------|
+| **SCATTER** | Random Poisson-disc distribution within valid zones | General fill (rocks, bushes, grass clumps) |
+| **ALONG_FAIRWAY** | Placed in pairs/rows flanking the fairway spine | Treelines, fences, path markers |
+| **CLUSTER** | Grouped in clumps of 3–8 around randomly chosen centers | Rock clusters, flower patches, mushroom rings |
+
+#### Example Biome Scenery
+
+| Biome | Props | Placement | Density |
+|-------|-------|-----------|---------|
+| **Meadow** | Deciduous trees, bushes, flowers, grass tufts | Trees ALONG_FAIRWAY, bushes SCATTER in rough, flowers CLUSTER | High |
+| **Canyon** | Rock spires, dead trees, tumbleweeds, cliff boulders | Rocks SCATTER in OOB, dead trees ALONG_FAIRWAY, tumbleweeds SCATTER | Medium |
+| **Desert** | Cacti, desert shrubs, rock formations, bone piles | Cacti SCATTER in rough, shrubs CLUSTER, large rocks SCATTER in OOB | Low-medium |
+| **Volcanic** | Obsidian shards, charred trees, steam vents, basalt columns | Shards SCATTER, charred trees ALONG_FAIRWAY, columns CLUSTER | Medium |
+
+#### Performance Considerations
+
+- **MultiMesh threshold:** Props with ≥ 10 expected instances per hole should use `mesh_for_multimesh`
+- **Draw call budget:** Target ≤ 5 MultiMeshInstance3D nodes + ≤ 20 individual scene instances per hole
+- **LOD:** Large props can use Godot's built-in LOD system (visibility ranges on the PackedScene). MultiMesh props are small enough to skip LOD.
+- **Culling:** All scenery parents to a single `Node3D` that can be toggled for performance debugging
+
+#### Implementation Steps
+
+| Step | Task | Dependencies |
+|------|------|-------------|
+| 13-1 | Create SceneryDefinition + SceneryEntry resources | None |
+| 13-2 | Add `scenery_definitions` array to BiomeDefinition | 13-1 |
+| 13-3 | Build Poisson-disc sampler utility (seeded) | None |
+| 13-4 | Implement `_generate_scenery()` in HoleGenerator (SCATTER method) | 13-1, 13-2, 13-3 |
+| 13-5 | Implement `_build_scenery()` in ProceduralHole (individual scene path) | 13-4 |
+| 13-6 | Add MultiMesh batching path for high-count props | 13-5 |
+| 13-7 | Implement ALONG_FAIRWAY placement method | 13-4 |
+| 13-8 | Implement CLUSTER placement method | 13-4 |
+| 13-9 | Create placeholder scenery .tres files for meadow/canyon/desert | 13-1 |
+| 13-10 | Replace existing cylinder-tree placement with SceneryDefinition | 13-5, 13-9 |
+| 13-11 | Swap in real 3D models as they become available | 13-10 |
+
+Steps 13-1 through 13-5 are the critical path. Steps 13-6+ are additive. Step 13-11 is ongoing as art assets are created.
 
 ### Splatmap Shader (Phase 6 remainder)
 Zone map texture → shader with per-zone albedo/normal/roughness. Infrastructure ready (UVs, material_override slot, ZoneDefinition.texture). Needs texture assets.

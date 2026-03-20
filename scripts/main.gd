@@ -180,6 +180,14 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 
 	current_hole = ProceduralHoleScript.new()
 	add_child(current_hole)
+
+	# Pass hazard modifier stack from current player (if any)
+	var _p: PlayerState = game_state.players.get(
+		network_manager.get_my_peer_id()) as PlayerState
+	if _p:
+		current_hole.hazard_modifier_stack = \
+			_p.get_hazard_modifier_stack()
+
 	current_hole.build(layout)
 	current_hole.ball_entered_cup.connect(_on_ball_entered_cup)
 	current_hole.ball_hit_dynamic_hazard.connect(_on_ball_hit_dynamic_hazard)

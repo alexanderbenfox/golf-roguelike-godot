@@ -98,7 +98,7 @@ Output of `HoleGenerator.generate()`, consumed by `ProceduralHole.build()`.
 
 **Fairway:** `fairway_flatten_strength`, `green_flatten_radius`, `tee_flatten_radius`
 
-**Hazards:** `water_height`, `lava_height`, `dynamic_hazard_density`
+**Hazards:** `water_height`, `lava_height`, `hazard_definitions` (Array of HazardEntry resources)
 
 **Wind:** `base_wind_strength`, `wind_variance`
 

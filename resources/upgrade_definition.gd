@@ -59,13 +59,47 @@ func apply(player: PlayerState) -> void:
 					player.gravity_scale *= effect.value
 				else:
 					player.gravity_scale += effect.value
+			UpgradeEffect.Stat.HAZARD_OVERRIDE:
+				_apply_hazard_override(player, effect)
 	player.applied_upgrade_ids.append(id)
+
+
+static func _apply_hazard_override(
+	player: PlayerState, effect: UpgradeEffect,
+) -> void:
+	var stack: RefCounted = player.get_hazard_modifier_stack()
+	var StackScript: GDScript = load(
+		"res://scripts/hazards/hazard_modifier_stack.gd"
+	)
+	var mod: RefCounted = StackScript.HazardModifier.new()
+	mod.target_hazard = effect.hazard_target
+	mod.param = effect.hazard_param
+	mod.operation = effect.operation
+	mod.value = effect.value
+	mod.holes_remaining = effect.hazard_duration
+	stack.add_modifier(mod)
 
 
 ## Returns a short human-readable string summarising all stat changes (shown on the card).
 func get_effects_summary() -> String:
 	var parts: Array[String] = []
 	for effect: UpgradeEffect in effects:
+		if effect.stat == UpgradeEffect.Stat.HAZARD_OVERRIDE:
+			var target: String = String(effect.hazard_target) \
+				if effect.hazard_target != &"" else "All hazards"
+			var param: String = String(effect.hazard_param).capitalize()
+			if effect.operation == UpgradeEffect.Operation.MULTIPLY:
+				var pct := int(round((effect.value - 1.0) * 100.0))
+				var sign_str := "+" if pct >= 0 else ""
+				parts.append("%s %s%d%% %s" % [
+					target, sign_str, pct, param,
+				])
+			else:
+				var sign_str := "+" if effect.value >= 0 else ""
+				parts.append("%s %s%.1f %s" % [
+					target, sign_str, effect.value, param,
+				])
+			continue
 		var stat_name: String = (UpgradeEffect.Stat.keys()[effect.stat] as String).capitalize()
 		if effect.operation == UpgradeEffect.Operation.MULTIPLY:
 			var pct := int(round((effect.value - 1.0) * 100.0))

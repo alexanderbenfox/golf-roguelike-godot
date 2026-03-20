@@ -19,8 +19,20 @@ var bounce_modifier: float = 1.0
 var accuracy: float = 0.7
 var gravity_scale: float = 1.0
 
+# Hazard modifier stack — roguelike cards push overrides here
+var hazard_modifier_stack: RefCounted = null  # HazardModifierStack
+
 # IDs of upgrades collected this run (for display / serialisation)
 var applied_upgrade_ids: Array[String] = []
+
+
+func get_hazard_modifier_stack() -> RefCounted:
+	if not hazard_modifier_stack:
+		var StackScript: GDScript = load(
+			"res://scripts/hazards/hazard_modifier_stack.gd"
+		)
+		hazard_modifier_stack = StackScript.new()
+	return hazard_modifier_stack
 
 
 func reset_for_hole(start_pos: Vector3) -> void:

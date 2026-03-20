@@ -2,6 +2,13 @@
 
 [ext_resource type="Script" uid="uid://c3c6yhmn05vye" path="res://resources/biome_definition.gd" id="1"]
 [ext_resource type="Script" uid="uid://cjg0bg5b8i6pa" path="res://resources/zone_definition.gd" id="2"]
+[ext_resource type="Script" uid="uid://b063pdowwu7n1" path="res://resources/hazard_entry.gd" id="3_hentry"]
+[ext_resource type="Resource" path="res://resources/hazards/rock_slide.tres" id="4_rslide"]
+
+[sub_resource type="Resource" id="he_rock"]
+script = ExtResource("3_hentry")
+definition = ExtResource("4_rslide")
+density = 3.0
 
 [sub_resource type="Resource" id="z0"]
 script = ExtResource("2")
@@ -97,7 +104,7 @@ fairway_flatten_strength = 0.7
 green_flatten_radius = 12.0
 tee_flatten_radius = 6.0
 water_height = -0.5
-dynamic_hazard_density = 1.0
+hazard_definitions = Array[Resource]([SubResource("he_rock")])
 base_wind_strength = 2.5
 wind_variance = 2.0
 slope_color = Color(0.55, 0.3, 0.2, 1)
