@@ -162,6 +162,24 @@ func set_wind(wind: Vector3) -> void:
 		sim_params.wind = wind
 
 
+## Apply an external impulse to the ball (e.g. from a dynamic hazard).
+## If the ball is at rest, restarts simulation so the impulse takes effect.
+func apply_hazard_impulse(impulse: Vector3) -> void:
+	if not sim_state:
+		return
+	if not is_simulating:
+		# Ball is at rest — restart simulation with the impulse as velocity
+		sim_state.velocity = impulse
+		sim_state.position = global_position
+		is_simulating = true
+		freeze = true
+		ball_trail.start()
+		if camera and camera.has_method("start_follow_shot"):
+			camera.start_follow_shot()
+	else:
+		sim_state.velocity += impulse
+
+
 # -------------------------------------------------------------------------
 # Turn control — called by TurnManager / Main
 # -------------------------------------------------------------------------

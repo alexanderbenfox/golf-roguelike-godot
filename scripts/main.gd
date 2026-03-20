@@ -182,6 +182,7 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 	add_child(current_hole)
 	current_hole.build(layout)
 	current_hole.ball_entered_cup.connect(_on_ball_entered_cup)
+	current_hole.ball_hit_dynamic_hazard.connect(_on_ball_hit_dynamic_hazard)
 
 	var tee_position: Vector3 = current_hole.get_tee_world_position()
 	ball.reset_position(tee_position)
@@ -330,6 +331,13 @@ func _on_ball_hit_water(_peer_id: int) -> void:
 func _on_ball_hit_lava(_peer_id: int) -> void:
 	scoring_manager.add_penalty(1)
 	_show_hazard_message("Lava! +1 Stroke", Color(0.95, 0.3, 0.05))
+
+
+func _on_ball_hit_dynamic_hazard(impulse: Vector3) -> void:
+	ball.apply_hazard_impulse(impulse)
+	_show_hazard_message(
+		"Hazard!", Color(0.9, 0.6, 0.1),
+	)
 
 
 func _show_hazard_message(text: String, color: Color) -> void:

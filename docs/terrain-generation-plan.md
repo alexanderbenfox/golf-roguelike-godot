@@ -1,5 +1,7 @@
 # Procedural Terrain Generation System — Design & Status
 
+> **Companion doc:** [terrain-generation-technical.md](terrain-generation-technical.md) describes the implemented system in detail (data structures, algorithms, parameter values). **Update it whenever a phase is completed** so it stays in sync with the codebase.
+
 ## Context
 
 The terrain system generates rolling hills, water/lava hazards, biome-specific mechanics, and proper golf course structure (fairway, rough, green, bunkers) — all procedurally from a seed. Each hole gets its own heightmap, zone map, obstacles, and wind.

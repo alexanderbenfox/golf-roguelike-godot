@@ -75,6 +75,10 @@ const TerrainDataScript = preload("res://scripts/terrain/terrain_data.gd")
 ## Height below which terrain becomes lava. Set to -999 to disable.
 @export_range(-20.0, 10.0, 0.1) var lava_height: float = -999.0
 
+## Density of dynamic timed hazards (rock slides, geysers, etc.).
+## 0.0 = none, 1.0 = normal, higher = more hazards per hole.
+@export_range(0.0, 3.0, 0.1) var dynamic_hazard_density: float = 0.0
+
 @export_group("Wind")
 
 ## Average wind speed (m/s). 0 = no wind for this biome.
@@ -232,6 +236,8 @@ static func create_canyon() -> BiomeDefinition:
 	biome.slope_color = Color(0.55, 0.30, 0.20)
 	biome.slope_threshold = 0.25
 	biome.slope_color_strength = 0.85
+	# Dynamic hazards: rock slides
+	biome.dynamic_hazard_density = 1.0
 	biome.terrain_amplitude = 8.0
 	biome.terrain_frequency = 0.018
 	biome.noise_octaves = 4
@@ -299,6 +305,8 @@ static func create_desert() -> BiomeDefinition:
 	biome.slope_color = Color(0.50, 0.40, 0.28)
 	biome.slope_threshold = 0.35
 	biome.slope_color_strength = 0.75
+	# Dynamic hazards: sand geysers
+	biome.dynamic_hazard_density = 1.5
 	biome.terrain_amplitude = 4.5
 	biome.terrain_frequency = 0.008
 	biome.noise_octaves = 3

@@ -14,6 +14,7 @@ class_name ProceduralHole
 extends Node3D
 
 signal ball_entered_cup
+signal ball_hit_dynamic_hazard(impulse: Vector3)
 
 const TerrainMeshBuilderScript = preload("res://scripts/terrain/terrain_mesh_builder.gd")
 
@@ -45,6 +46,7 @@ func build(hole_layout: HoleGenerator.HoleLayout) -> void:
 	_build_terrain()
 	_build_hazard_planes()
 	_build_obstacles()
+	_build_dynamic_hazards()
 	_build_cup()
 
 
@@ -228,6 +230,40 @@ func _build_bunker(obs: HoleGenerator.ObstacleDescriptor) -> void:
 		SAND_COLOR,
 		0.05
 	)
+
+
+# -------------------------------------------------------------------------
+# Dynamic hazards
+# -------------------------------------------------------------------------
+
+func _build_dynamic_hazards() -> void:
+	var RockSlideScript: GDScript = load("res://scripts/hazards/rock_slide_hazard.gd")
+	var GeyserScript: GDScript = load("res://scripts/hazards/sand_geyser_hazard.gd")
+
+	for desc: HoleGenerator.DynamicHazardDescriptor in layout.dynamic_hazards:
+		var hazard: Node3D
+		match desc.type:
+			HoleGenerator.DynamicHazardDescriptor.HazardType.ROCK_SLIDE:
+				hazard = RockSlideScript.new()
+			HoleGenerator.DynamicHazardDescriptor.HazardType.SAND_GEYSER:
+				hazard = GeyserScript.new()
+			_:
+				continue
+
+		hazard.setup(desc)
+
+		# Place at terrain height if terrain data is available
+		var pos := desc.world_position
+		if layout.terrain_data:
+			pos.y = layout.terrain_data.get_height_at(pos.x, pos.z)
+		hazard.position = pos
+
+		hazard.hazard_activated.connect(_on_hazard_activated)
+		add_child(hazard)
+
+
+func _on_hazard_activated(impulse: Vector3) -> void:
+	ball_hit_dynamic_hazard.emit(impulse)
 
 
 # -------------------------------------------------------------------------

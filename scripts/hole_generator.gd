@@ -27,6 +27,19 @@ class ObstacleDescriptor:
 	var height: float  # trees only; bunkers use a fixed visual thickness
 
 
+class DynamicHazardDescriptor:
+	enum HazardType { ROCK_SLIDE, SAND_GEYSER }
+	var type: HazardType
+	var world_position: Vector3      # center of the hazard zone
+	var direction: Vector3           # slide direction (rocks) or ejection hint (geysers)
+	var effect_radius: float         # radius of ball interaction area
+	var cycle_period: float          # seconds for one full cycle
+	var active_duration: float       # seconds the hazard is dangerous per cycle
+	var warning_duration: float      # seconds of visual warning before activation
+	var phase_offset: float          # offset into cycle for staggering
+	var intensity: float             # impulse strength
+
+
 class HoleLayout:
 	var hole_number: int
 	var par: int
@@ -36,12 +49,14 @@ class HoleLayout:
 	var hole_length: float
 	var fairway_width: float
 	var obstacles: Array[ObstacleDescriptor]
+	var dynamic_hazards: Array[DynamicHazardDescriptor]
 	var terrain_data: RefCounted  # TerrainData — heightmap + zones for this hole
 	var wind: Vector3  # horizontal wind vector for this hole
 
 	func _init() -> void:
 		tee_position = Vector3.ZERO
 		obstacles = []
+		dynamic_hazards = []
 		wind = Vector3.ZERO
 
 
@@ -121,6 +136,15 @@ static func generate(
 			cos(wind_angle), 0.0, sin(wind_angle),
 		) * wind_strength
 
+	# Generate dynamic hazards (sub-RNG so parent draw count is fixed)
+	var hazard_rng_seed: int = rng.randi()
+	if resolved_biome and resolved_biome.dynamic_hazard_density > 0.0:
+		var hazard_rng := RandomNumberGenerator.new()
+		hazard_rng.seed = hazard_rng_seed
+		_generate_dynamic_hazards(
+			hazard_rng, layout, resolved_biome,
+		)
+
 	# Generate terrain heightmap + zones (biome set on terrain inside)
 	layout.terrain_data = HeightmapGeneratorScript.generate(
 		rng,
@@ -195,3 +219,120 @@ static func _generate_obstacles(rng: RandomNumberGenerator, layout: HoleLayout, 
 		b.world_position.y = 0.0
 		b.radius = rng.randf_range(3.0, 5.0)
 		layout.obstacles.append(b)
+
+
+# -------------------------------------------------------------------------
+# Dynamic hazard generation
+# -------------------------------------------------------------------------
+
+## Place dynamic hazards along the fairway based on biome type and density.
+## Uses its own RNG (derived from the parent) so draw count is isolated.
+static func _generate_dynamic_hazards(
+	rng: RandomNumberGenerator,
+	layout: HoleLayout,
+	biome: BiomeDefinition,
+) -> void:
+	var dir := Vector3(
+		sin(layout.hole_direction), 0.0,
+		-cos(layout.hole_direction),
+	)
+	var right := Vector3(
+		cos(layout.hole_direction), 0.0,
+		sin(layout.hole_direction),
+	)
+	var density: float = biome.dynamic_hazard_density
+	var min_dist_from_tee: float = 15.0
+	var min_dist_from_cup: float = 20.0
+
+	match biome.biome_name:
+		"Canyon":
+			_place_rock_slides(
+				rng, layout, dir, right, density,
+				min_dist_from_tee, min_dist_from_cup,
+			)
+		"Desert":
+			_place_sand_geysers(
+				rng, layout, dir, right, density,
+				min_dist_from_tee, min_dist_from_cup,
+			)
+
+
+static func _place_rock_slides(
+	rng: RandomNumberGenerator,
+	layout: HoleLayout,
+	dir: Vector3,
+	right: Vector3,
+	density: float,
+	min_from_tee: float,
+	min_from_cup: float,
+) -> void:
+	var count := clampi(
+		int(layout.hole_length / 50.0 * density), 0, 3,
+	)
+	for i: int in range(count):
+		var h := DynamicHazardDescriptor.new()
+		h.type = DynamicHazardDescriptor.HazardType.ROCK_SLIDE
+
+		# Place at 30-70% of hole length, clamped away from tee/cup
+		var t := rng.randf_range(0.3, 0.7)
+		var along_dist: float = t * layout.hole_length
+		along_dist = clampf(
+			along_dist, min_from_tee,
+			layout.hole_length - min_from_cup,
+		)
+		h.world_position = dir * along_dist
+		h.world_position.y = 0.5  # ground height, adjusted at build time
+
+		# Rocks slide perpendicular to fairway
+		var side_sign: float = 1.0 if rng.randf() > 0.5 else -1.0
+		h.direction = right * side_sign
+
+		h.effect_radius = layout.fairway_width * 0.6
+		h.cycle_period = rng.randf_range(6.0, 10.0)
+		h.active_duration = rng.randf_range(2.0, 3.0)
+		h.warning_duration = 1.5
+		h.phase_offset = rng.randf_range(0.0, h.cycle_period)
+		h.intensity = rng.randf_range(12.0, 18.0)
+
+		layout.dynamic_hazards.append(h)
+
+
+static func _place_sand_geysers(
+	rng: RandomNumberGenerator,
+	layout: HoleLayout,
+	dir: Vector3,
+	right: Vector3,
+	density: float,
+	min_from_tee: float,
+	min_from_cup: float,
+) -> void:
+	var count := clampi(
+		int(layout.hole_length / 60.0 * density), 0, 4,
+	)
+	for i: int in range(count):
+		var h := DynamicHazardDescriptor.new()
+		h.type = DynamicHazardDescriptor.HazardType.SAND_GEYSER
+
+		# Place at 20-80% of hole length on or near fairway
+		var t := rng.randf_range(0.2, 0.8)
+		var along_dist: float = t * layout.hole_length
+		along_dist = clampf(
+			along_dist, min_from_tee,
+			layout.hole_length - min_from_cup,
+		)
+		var lateral := rng.randf_range(
+			-layout.fairway_width * 0.4,
+			layout.fairway_width * 0.4,
+		)
+		h.world_position = dir * along_dist + right * lateral
+		h.world_position.y = 0.5
+
+		h.direction = Vector3.UP
+		h.effect_radius = rng.randf_range(2.5, 4.0)
+		h.cycle_period = rng.randf_range(5.0, 8.0)
+		h.active_duration = rng.randf_range(1.5, 2.5)
+		h.warning_duration = 2.0
+		h.phase_offset = rng.randf_range(0.0, h.cycle_period)
+		h.intensity = rng.randf_range(10.0, 16.0)
+
+		layout.dynamic_hazards.append(h)

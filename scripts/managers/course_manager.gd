@@ -71,7 +71,8 @@ func generate_course(rng_seed: int = 0) -> void:
 
 
 ## Resolve the biome sequence into an array of {biome, count} dicts.
-## Falls back to a single Meadow segment when biome_sequence is empty.
+## When biome_sequence is set in the Inspector, uses that directly.
+## When empty, builds a run-based progression sequence from meta_level.
 func _resolve_sequence() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if biome_sequence.size() > 0:
@@ -86,13 +87,56 @@ func _resolve_sequence() -> Array[Dictionary]:
 				"margin": segment.margin,
 			})
 	else:
-		result.append({
-			"biome": BiomeDefinitionScript.create_meadow(),
-			"count": 9,
-			"cell_size": 2.0,
-			"margin": 30.0,
-		})
+		result = _build_run_sequence()
 	return result
+
+
+## Build a biome sequence dynamically based on MetaProgression.meta_level.
+## Each meta level introduces one new biome, shifting holes toward harder biomes.
+##
+## Level 0 (0 runs):   9 Meadow
+## Level 1 (2+ runs):  5 Meadow, 4 Canyon
+## Level 2 (5+ runs):  3 Meadow, 3 Canyon, 3 Desert
+## Level 3 (10+ runs): 2 Meadow, 3 Canyon, 4 Desert
+func _build_run_sequence() -> Array[Dictionary]:
+	# TODO: Re-enable when meta progression is ready for testing
+	# var level: int = MetaProgression.meta_level if MetaProgression else 0
+	var level: int = 3
+
+	var meadow: BiomeDefinition = BiomeDefinitionScript.create_meadow()
+	var canyon: BiomeDefinition = BiomeDefinitionScript.create_canyon()
+	var desert: BiomeDefinition = BiomeDefinitionScript.create_desert()
+
+	var result: Array[Dictionary] = []
+	match level:
+		0:
+			result.append(_seg(meadow, 9))
+		1:
+			result.append(_seg(meadow, 5))
+			result.append(_seg(canyon, 4, 2.5, 35.0))
+		2:
+			result.append(_seg(meadow, 3))
+			result.append(_seg(canyon, 3, 2.5, 35.0))
+			result.append(_seg(desert, 3, 2.0, 35.0))
+		_:
+			# Level 3+: skew toward harder biomes
+			result.append(_seg(meadow, 2))
+			result.append(_seg(canyon, 3, 2.5, 35.0))
+			result.append(_seg(desert, 4, 2.0, 35.0))
+
+	return result
+
+
+static func _seg(
+	biome: BiomeDefinition, count: int,
+	cell_size: float = 2.0, margin: float = 30.0,
+) -> Dictionary:
+	return {
+		"biome": biome,
+		"count": count,
+		"cell_size": cell_size,
+		"margin": margin,
+	}
 
 
 func get_current_layout() -> HoleGenerator.HoleLayout:

@@ -23,9 +23,9 @@
 [ext_resource type="Resource" uid="uid://bla40gb1alvk6" path="res://resources/upgrades/straight_shot.tres" id="11_upg8"]
 [ext_resource type="Resource" uid="uid://o8ca1ucqx71k" path="res://resources/upgrades/all_golden_club.tres" id="11_upg9"]
 [ext_resource type="Script" uid="uid://bono71xruhrub" path="res://resources/biome_segment.gd" id="20_5t8nk"]
-[ext_resource type="Resource" path="res://resources/biomes/meadow.tres" id="30_meadow"]
-[ext_resource type="Resource" path="res://resources/biomes/canyon.tres" id="31_canyon"]
-[ext_resource type="Resource" path="res://resources/biomes/desert.tres" id="32_desert"]
+[ext_resource type="Resource" uid="uid://c4bladhnojbml" path="res://resources/biomes/meadow.tres" id="30_meadow"]
+[ext_resource type="Resource" uid="uid://b0denb2w1toja" path="res://resources/biomes/canyon.tres" id="31_canyon"]
+[ext_resource type="Resource" uid="uid://c221bvdvk4nul" path="res://resources/biomes/desert.tres" id="32_desert"]
 
 [sub_resource type="Resource" id="seg_desert"]
 script = ExtResource("20_5t8nk")
