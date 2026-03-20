@@ -12,6 +12,7 @@ const GolferStatsScript = preload("res://resources/golfer_stats.gd")
 const ScorecardUIScript = preload("res://scripts/ui/scorecard_ui.gd")
 const DebugOverlayScript = preload("res://scripts/ui/debug_overlay.gd")
 const WindIndicatorScript = preload("res://scripts/ui/wind_indicator.gd")
+const WindParticlesScript = preload("res://scripts/ui/wind_particles.gd")
 
 ## Starting stats for the golfer — edit in Inspector to tune defaults.
 @export var golfer_stats: Resource  # GolferStats
@@ -36,6 +37,7 @@ var _distance_label: Label
 var _scorecard: Control
 var _debug_overlay: DebugOverlay
 var _wind_indicator: WindIndicator
+var _wind_particles: Node3D
 
 
 func _ready() -> void:
@@ -75,6 +77,11 @@ func _ready() -> void:
 	# Wind indicator (top-right corner)
 	_wind_indicator = WindIndicatorScript.new()
 	$UICanvas.add_child(_wind_indicator)
+
+	# Wind particle effect (3D, follows camera)
+	_wind_particles = WindParticlesScript.new()
+	_wind_particles.camera_target = camera
+	add_child(_wind_particles)
 
 	# Debug overlay (toggle with F3)
 	_debug_overlay = DebugOverlayScript.new()
@@ -340,6 +347,8 @@ func _show_hazard_message(text: String, color: Color) -> void:
 func _update_wind_indicator(wind: Vector3) -> void:
 	if _wind_indicator:
 		_wind_indicator.update_wind(wind)
+	if _wind_particles:
+		_wind_particles.update_wind(wind)
 
 
 func _on_turn_manager_hole_complete() -> void:

@@ -41,6 +41,12 @@ static func build(terrain: RefCounted) -> Dictionary:
 	var biome: RefCounted = terrain.biome  # BiomeDefinition or null
 	var uv_scale: float = biome.uv_scale if biome else 0.1
 
+	# Slope coloring parameters
+	var slope_color: Color = biome.slope_color if biome else Color(0.45, 0.35, 0.25)
+	var slope_threshold: float = biome.slope_threshold if biome else 0.4
+	var slope_strength: float = biome.slope_color_strength if biome else 0.0
+	var slope_range: float = 1.0 - slope_threshold  # denominator for blend factor
+
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
@@ -62,6 +68,13 @@ static func build(terrain: RefCounted) -> Dictionary:
 			var c10: Color = _zone_color(terrain.zones[terrain.idx(gx + 1, gz)], biome)
 			var c01: Color = _zone_color(terrain.zones[terrain.idx(gx, gz + 1)], biome)
 			var c11: Color = _zone_color(terrain.zones[terrain.idx(gx + 1, gz + 1)], biome)
+
+			# Slope-dependent coloring: blend toward slope_color on steep faces
+			if slope_strength > 0.0 and slope_range > 0.0:
+				c00 = _apply_slope_color(c00, terrain, v00, slope_color, slope_threshold, slope_range, slope_strength)
+				c10 = _apply_slope_color(c10, terrain, v10, slope_color, slope_threshold, slope_range, slope_strength)
+				c01 = _apply_slope_color(c01, terrain, v01, slope_color, slope_threshold, slope_range, slope_strength)
+				c11 = _apply_slope_color(c11, terrain, v11, slope_color, slope_threshold, slope_range, slope_strength)
 
 			# UV coordinates from world XZ position
 			var uv00 := Vector2(v00.x, v00.z) * uv_scale
@@ -127,3 +140,15 @@ static func _zone_color(zone_byte: int, biome: RefCounted) -> Color:
 	if biome:
 		return biome.get_color(zone_byte)
 	return _FALLBACK_COLORS.get(zone_byte, Color(0.30, 0.48, 0.12))
+
+
+static func _apply_slope_color(
+	base_color: Color, terrain: RefCounted, vertex: Vector3,
+	slope_color: Color, threshold: float, slope_range: float, strength: float,
+) -> Color:
+	var normal: Vector3 = terrain.get_normal_at(vertex.x, vertex.z)
+	var steepness: float = 1.0 - normal.y  # 0 = flat, 1 = vertical
+	if steepness <= threshold:
+		return base_color
+	var blend := clampf((steepness - threshold) / slope_range, 0.0, 1.0) * strength
+	return base_color.lerp(slope_color, blend)

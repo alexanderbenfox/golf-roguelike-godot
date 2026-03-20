@@ -45,6 +45,16 @@ const TerrainDataScript = preload("res://scripts/terrain/terrain_data.gd")
 ## all generation passes.
 @export_range(0.0, 30.0, 0.1) var max_height: float = 8.0
 
+@export_group("Plateaus")
+
+## How aggressively heights snap to discrete terrace levels (0 = smooth
+## natural noise, 1 = hard flat mesas with steep cliff transitions).
+@export_range(0.0, 1.0, 0.05) var plateau_factor: float = 0.0
+
+## Number of discrete elevation bands. More levels = thinner terraces.
+## Only used when plateau_factor > 0.
+@export_range(2, 8) var plateau_levels: int = 3
+
 @export_group("Fairway Shaping")
 
 ## How aggressively the fairway corridor blends toward the spine elevation.
@@ -83,6 +93,20 @@ const TerrainDataScript = preload("res://scripts/terrain/terrain_data.gd")
 ## UV tiling scale for terrain mesh (world_position * uv_scale = UV).
 ## Controls texture repeat density when material_override is set.
 @export_range(0.01, 1.0, 0.01) var uv_scale: float = 0.1
+
+@export_group("Slope Coloring")
+
+## Color applied to steep terrain faces (cliff sides, hill faces).
+## Blended over the zone color based on surface steepness.
+@export var slope_color: Color = Color(0.45, 0.35, 0.25)
+
+## Steepness below which no slope coloring is applied (0 = flat, 1 = vertical).
+## Surfaces steeper than this threshold start blending toward slope_color.
+@export_range(0.0, 1.0, 0.05) var slope_threshold: float = 0.4
+
+## Maximum blend strength toward slope_color at fully vertical surfaces.
+## 0 = no slope coloring, 1 = fully replaces zone color on vertical faces.
+@export_range(0.0, 1.0, 0.05) var slope_color_strength: float = 0.8
 
 
 # ---- Auto-populate zones on creation ----------------------------------------
@@ -142,6 +166,13 @@ static func create_meadow() -> BiomeDefinition:
 	biome.water_height = 0.0
 	biome.base_wind_strength = 1.0
 	biome.wind_variance = 1.5
+	# Plateaus: gentle terracing, still mostly smooth
+	biome.plateau_factor = 0.3
+	biome.plateau_levels = 3
+	# Slope coloring: exposed earth/dirt on hillsides
+	biome.slope_color = Color(0.45, 0.35, 0.25)
+	biome.slope_threshold = 0.3
+	biome.slope_color_strength = 0.8
 	# Noise defaults are already meadow-appropriate
 	biome.zones = [
 		_zone(
@@ -194,6 +225,13 @@ static func create_canyon() -> BiomeDefinition:
 	biome.water_height = -0.5
 	biome.base_wind_strength = 2.5
 	biome.wind_variance = 2.0
+	# Plateaus: prominent mesas with steep cliffs
+	biome.plateau_factor = 0.6
+	biome.plateau_levels = 4
+	# Slope coloring: red-brown sandstone cliff faces
+	biome.slope_color = Color(0.55, 0.30, 0.20)
+	biome.slope_threshold = 0.25
+	biome.slope_color_strength = 0.85
 	biome.terrain_amplitude = 8.0
 	biome.terrain_frequency = 0.018
 	biome.noise_octaves = 4
@@ -254,6 +292,13 @@ static func create_desert() -> BiomeDefinition:
 	biome.biome_name = "Desert"
 	biome.base_wind_strength = 4.0
 	biome.wind_variance = 3.0
+	# Plateaus: moderate dune plateaus
+	biome.plateau_factor = 0.4
+	biome.plateau_levels = 3
+	# Slope coloring: dark compacted sand/hardpan on dune faces
+	biome.slope_color = Color(0.50, 0.40, 0.28)
+	biome.slope_threshold = 0.35
+	biome.slope_color_strength = 0.75
 	biome.terrain_amplitude = 4.5
 	biome.terrain_frequency = 0.008
 	biome.noise_octaves = 3

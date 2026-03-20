@@ -140,6 +140,12 @@ static func generate(
 	if biome:
 		_apply_zone_height_modifiers(terrain, biome, ground_height)
 
+	# --- Step 3b: Plateau reshaping ---
+	var plateau_factor: float = biome.plateau_factor if biome else 0.0
+	if plateau_factor > 0.0:
+		var plateau_levels: int = biome.plateau_levels if biome else 3
+		_apply_plateaus(terrain, min_h, max_h, plateau_factor, plateau_levels)
+
 	# --- Step 4: Carve fairway corridor ---
 	_carve_fairway(
 		terrain, spine, fairway_width, fw_flatten, ground_height,
@@ -222,6 +228,31 @@ static func _apply_zone_height_modifiers(
 
 			terrain.heights[cell_idx] = \
 				ground_height + delta + zone_def.height_offset
+
+
+## Snap heights toward discrete terrace levels to create flat-topped
+## mesas with steep cliff transitions between elevation bands.
+static func _apply_plateaus(
+	terrain: RefCounted,
+	min_h: float,
+	max_h: float,
+	factor: float,
+	levels: int,
+) -> void:
+	var h_range: float = max_h - min_h
+	if h_range < 0.01 or levels < 2:
+		return
+	var inv_range: float = 1.0 / h_range
+	var levels_f: float = float(levels)
+	for i: int in range(terrain.heights.size()):
+		var h: float = terrain.heights[i]
+		# Normalize to 0-1
+		var t: float = clampf((h - min_h) * inv_range, 0.0, 1.0)
+		# Snap to nearest terrace level
+		var terrace_t: float = roundf(t * levels_f) / levels_f
+		# Blend between original and snapped by plateau_factor
+		var terraced_h: float = min_h + lerpf(t, terrace_t, factor) * h_range
+		terrain.heights[i] = terraced_h
 
 
 ## Blend cells near the fairway spine toward the spine's elevation.
