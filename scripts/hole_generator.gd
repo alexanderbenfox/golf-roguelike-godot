@@ -24,7 +24,9 @@ class ObstacleDescriptor:
 	var type: Type
 	var world_position: Vector3
 	var radius: float
-	var height: float  # trees only; bunkers use a fixed visual thickness
+	var height: float      # trees only
+	var aspect_ratio: float = 1.0  # bunkers: elongation (>1 = longer along rotation axis)
+	var rotation: float = 0.0     # bunkers: radians, orientation of the long axis
 
 
 class DynamicHazardDescriptor:
@@ -144,6 +146,12 @@ static func generate(
 			hazard_rng, layout, resolved_biome,
 		)
 
+	# Extract bunker positions for terrain painting
+	var bunkers: Array = []
+	for obs in layout.obstacles:
+		if obs.type == ObstacleDescriptor.Type.BUNKER:
+			bunkers.append(obs)
+
 	# Generate terrain heightmap + zones (biome set on terrain inside)
 	layout.terrain_data = HeightmapGeneratorScript.generate(
 		rng,
@@ -156,6 +164,7 @@ static func generate(
 		cell_size,
 		terrain_margin,
 		resolved_biome,
+		bunkers,
 	)
 
 	return layout
@@ -200,10 +209,15 @@ static func _generate_obstacles(rng: RandomNumberGenerator, layout: HoleLayout, 
 		var b := ObstacleDescriptor.new()
 		b.type = ObstacleDescriptor.Type.BUNKER
 		var back := dir * (layout.hole_length - rng.randf_range(5.0, 14.0))
-		var side := right * rng.randf_range(-layout.fairway_width * 0.8, layout.fairway_width * 0.8)
+		var side := right * rng.randf_range(
+			-layout.fairway_width * 0.8,
+			layout.fairway_width * 0.8,
+		)
 		b.world_position = back + side
 		b.world_position.y = 0.0
-		b.radius = rng.randf_range(3.0, 6.0)
+		b.radius = rng.randf_range(4.0, 7.0)
+		b.aspect_ratio = rng.randf_range(1.0, 2.2)
+		b.rotation = rng.randf_range(0.0, TAU)
 		layout.obstacles.append(b)
 
 	# --- Fairway bunker (chance scales with bunker_density, par 4+) ---
@@ -214,9 +228,14 @@ static func _generate_obstacles(rng: RandomNumberGenerator, layout: HoleLayout, 
 		var t := rng.randf_range(0.3, 0.6)
 		var side_sign := 1.0 if rng.randf() > 0.5 else -1.0
 		b.world_position = dir * (t * layout.hole_length) \
-			+ right * side_sign * (layout.fairway_width * 0.3 + rng.randf_range(0.0, 4.0))
+			+ right * side_sign * (
+				layout.fairway_width * 0.3
+				+ rng.randf_range(0.0, 4.0)
+			)
 		b.world_position.y = 0.0
-		b.radius = rng.randf_range(3.0, 5.0)
+		b.radius = rng.randf_range(4.0, 6.0)
+		b.aspect_ratio = rng.randf_range(1.0, 2.5)
+		b.rotation = rng.randf_range(0.0, TAU)
 		layout.obstacles.append(b)
 
 

@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://c3c6yhmn05vye" path="res://resources/biome_definition.gd" id="1"]
 [ext_resource type="Script" uid="uid://cjg0bg5b8i6pa" path="res://resources/zone_definition.gd" id="2"]
 [ext_resource type="Script" uid="uid://b063pdowwu7n1" path="res://resources/hazard_entry.gd" id="3_hentry"]
-[ext_resource type="Resource" path="res://resources/hazards/sand_geyser.tres" id="4_geyser"]
+[ext_resource type="Resource" uid="uid://d31qu6n6kbkof" path="res://resources/hazards/sand_geyser.tres" id="4_geyser"]
 
 [sub_resource type="Resource" id="he_geyser"]
 script = ExtResource("3_hentry")
@@ -56,7 +56,7 @@ hill_scale = 0.4
 valley_scale = 0.6
 hill_shape = 0.9
 valley_shape = 0.5
-height_offset = -0.4
+height_offset = -1.5
 
 [sub_resource type="Resource" id="z5"]
 script = ExtResource("2")

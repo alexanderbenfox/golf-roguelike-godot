@@ -3,7 +3,7 @@
 ## Responsibilities:
 ##   - Terrain mesh (vertex-coloured heightmap) with collision
 ##   - Tree obstacles (StaticBody3D with collision so ball bounces off)
-##   - Bunker visuals (sand-coloured disc; friction penalty is a future TODO)
+##   - Bunkers (terrain-integrated — painted as BUNKER zones with bowl depressions)
 ##   - Cup + flag (owns the Area3D and emits ball_entered_cup)
 ##
 ## Usage:
@@ -20,7 +20,6 @@ const TerrainMeshBuilderScript = preload("res://scripts/terrain/terrain_mesh_bui
 
 const TRUNK_COLOR    := Color(0.35, 0.20, 0.05)
 const FOLIAGE_COLOR  := Color(0.10, 0.38, 0.08)
-const SAND_COLOR     := Color(0.85, 0.78, 0.50)
 const FLAG_COLOR     := Color(0.90, 0.10, 0.10)
 
 const GREEN_RADIUS   := 8.0
@@ -175,8 +174,6 @@ func _build_obstacles() -> void:
 		match obs.type:
 			HoleGenerator.ObstacleDescriptor.Type.TREE:
 				_build_tree(obs)
-			HoleGenerator.ObstacleDescriptor.Type.BUNKER:
-				_build_bunker(obs)
 
 
 func _build_tree(obs: HoleGenerator.ObstacleDescriptor) -> void:
@@ -219,22 +216,6 @@ func _build_tree(obs: HoleGenerator.ObstacleDescriptor) -> void:
 	)
 	add_child(body)
 
-
-func _build_bunker(obs: HoleGenerator.ObstacleDescriptor) -> void:
-	# Sample terrain height at center + edge points so the disc sits above the
-	# highest point within its footprint (avoids clipping on sloped terrain).
-	var cx: float = obs.world_position.x
-	var cz: float = obs.world_position.z
-	var r: float = obs.radius
-	var base_y: float = _terrain_height_at(cx, cz)
-	for offset: Vector2 in [Vector2(r, 0), Vector2(-r, 0), Vector2(0, r), Vector2(0, -r)]:
-		base_y = maxf(base_y, _terrain_height_at(cx + offset.x, cz + offset.y))
-	_add_disc_mesh(
-		Vector3(cx, base_y, cz),
-		obs.radius,
-		SAND_COLOR,
-		0.05
-	)
 
 
 # -------------------------------------------------------------------------
@@ -358,18 +339,6 @@ func _terrain_height_at(world_x: float, world_z: float) -> float:
 		return layout.terrain_data.get_height_at(world_x, world_z)
 	return 0.5
 
-
-## Adds a flat CylinderMesh disc (for bunkers).
-func _add_disc_mesh(center: Vector3, radius: float, color: Color, y_offset: float) -> void:
-	var mi := MeshInstance3D.new()
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius
-	mesh.bottom_radius = radius
-	mesh.height = 0.02
-	mi.mesh = mesh
-	mi.material_override = _flat_material(color)
-	mi.position = center + Vector3(0.0, y_offset, 0.0)
-	add_child(mi)
 
 
 func _flat_material(color: Color) -> StandardMaterial3D:

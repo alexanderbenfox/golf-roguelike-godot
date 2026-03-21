@@ -202,7 +202,7 @@ static func create_meadow() -> BiomeDefinition:
 		_zone_ex(
 			TerrainDataScript.ZoneType.BUNKER,
 			Color(0.85, 0.78, 0.50), 3.0,
-			0.2, 0.5, 0.8, 0.6, -0.3,
+			0.2, 0.5, 0.8, 0.6, -1.5,
 		),
 		_zone(
 			TerrainDataScript.ZoneType.WATER,
@@ -270,7 +270,7 @@ static func create_canyon() -> BiomeDefinition:
 		_zone_ex(
 			TerrainDataScript.ZoneType.BUNKER,
 			Color(0.75, 0.60, 0.35), 3.5,
-			0.3, 0.8, 0.7, 0.5, -0.6,
+			0.3, 0.8, 0.7, 0.5, -1.5,
 		),
 		_zone_ex(
 			TerrainDataScript.ZoneType.WATER,
@@ -337,7 +337,7 @@ static func create_desert() -> BiomeDefinition:
 		_zone_ex(
 			TerrainDataScript.ZoneType.BUNKER,
 			Color(0.90, 0.82, 0.55), 4.0,
-			0.4, 0.6, 0.9, 0.5, -0.4,
+			0.4, 0.6, 0.9, 0.5, -1.5,
 		),
 		_zone(
 			TerrainDataScript.ZoneType.WATER,

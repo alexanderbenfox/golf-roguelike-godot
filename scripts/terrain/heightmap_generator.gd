@@ -9,7 +9,8 @@
 ##   3. Apply per-zone height modifiers (hill/valley scale, shape, offset)
 ##   4. Carve fairway corridor (smooth toward spine elevation)
 ##   5. Flatten green and tee areas
-##   6. Clamp heights to biome min/max
+##   6. Paint bunkers (zone + smooth bowl depression)
+##   7. Clamp heights to biome min/max
 class_name HeightmapGenerator
 extends RefCounted
 
@@ -36,6 +37,8 @@ const _DEFAULT_MAX_HEIGHT: float   = 8.0
 ## Generate a TerrainData for the given hole routing.
 ## Pass a BiomeDefinition to use its noise/elevation/zone params;
 ## null falls back to hardcoded defaults.
+## bunkers: Array of ObstacleDescriptors (type=BUNKER) — painted into
+## terrain as BUNKER zones with smooth bowl depressions.
 static func generate(
 	rng: RandomNumberGenerator,
 	tee_pos: Vector3,
@@ -47,6 +50,7 @@ static func generate(
 	cell_size: float = 2.0,
 	margin: float = 30.0,
 	biome: BiomeDefinition = null,
+	bunkers: Array = [],
 ) -> RefCounted:
 	var noise_seed: int = rng.randi()
 
@@ -157,13 +161,19 @@ static func generate(
 	_flatten_area(terrain, cup_flat, green_radius, ground_height)
 	_flatten_area(terrain, tee_flat, tee_radius, ground_height)
 
-	# --- Step 6: Clamp heights ---
-	_clamp_heights(terrain, min_h, max_h)
-
-	# --- Step 7: Paint hazard zones (needs final heights) ---
+	# --- Step 6: Set hazard heights (needed by bunker clamping) ---
 	if biome:
 		terrain.water_height = biome.water_height
 		terrain.lava_height = biome.lava_height
+
+	# --- Step 7: Paint bunkers (zone + smooth bowl depression) ---
+	if biome and bunkers.size() > 0:
+		_paint_bunkers(terrain, bunkers, biome)
+
+	# --- Step 8: Clamp heights ---
+	_clamp_heights(terrain, min_h, max_h)
+
+	# --- Step 9: Paint hazard zones (needs final heights) ---
 	_paint_hazard_zones(terrain)
 
 	# Set key positions with correct Y
@@ -419,6 +429,119 @@ static func _paint_hazard_zones(terrain: RefCounted) -> void:
 			terrain.zones[i] = TerrainDataScript.ZoneType.LAVA
 		elif has_water and h < terrain.water_height:
 			terrain.zones[i] = TerrainDataScript.ZoneType.WATER
+
+
+# -------------------------------------------------------------------------
+# Bunker painting
+# -------------------------------------------------------------------------
+
+## Paint BUNKER zones at the given positions and carve smooth bowl
+## depressions. Runs after fairway carving + green/tee flattening so
+## the bowls are relative to the already-smooth terrain surface.
+## Supports elliptical bunkers via aspect_ratio and rotation on each
+## descriptor.
+static func _paint_bunkers(
+	terrain: RefCounted,
+	bunkers: Array,
+	biome: RefCounted,
+) -> void:
+	var zone_def: ZoneDefinition = biome.get_zone_def(
+		TerrainDataScript.ZoneType.BUNKER,
+	)
+	# Depression depth — minimum 1.2 so bunkers are clearly visible
+	var depth: float = maxf(
+		absf(zone_def.height_offset) if zone_def else 1.2, 1.2,
+	)
+	# Floor height — don't depress bunkers below water/lava planes
+	var floor_h: float = -999.0
+	if terrain.water_height > -900.0:
+		floor_h = maxf(floor_h, terrain.water_height + 0.15)
+	if terrain.lava_height > -900.0:
+		floor_h = maxf(floor_h, terrain.lava_height + 0.15)
+
+	for bunker in bunkers:
+		var cx: float = bunker.world_position.x
+		var cz: float = bunker.world_position.z
+		var radius: float = bunker.radius
+		var aspect: float = bunker.aspect_ratio \
+			if "aspect_ratio" in bunker else 1.0
+		var rot: float = bunker.rotation \
+			if "rotation" in bunker else 0.0
+
+		# Precompute rotation for ellipse distance check
+		var cos_r: float = cos(-rot)
+		var sin_r: float = sin(-rot)
+		# Semi-axes: long = radius * aspect, short = radius
+		var semi_long: float = radius * aspect
+		var semi_short: float = radius
+		# Bounding radius for early rejection
+		var bound_sq: float = semi_long * semi_long
+
+		# Reference height at bunker center
+		var center_gx: int = clampi(
+			int((cx - terrain.origin.x) / terrain.cell_size),
+			0, terrain.grid_width - 1,
+		)
+		var center_gz: int = clampi(
+			int((cz - terrain.origin.z) / terrain.cell_size),
+			0, terrain.grid_depth - 1,
+		)
+		var center_h: float = terrain.heights[
+			terrain.idx(center_gx, center_gz)
+		]
+
+		for gz: int in range(terrain.grid_depth):
+			for gx: int in range(terrain.grid_width):
+				var world: Vector3 = terrain.grid_to_world(
+					gx, gz,
+				)
+				var dx: float = world.x - cx
+				var dz: float = world.z - cz
+
+				# Early reject with bounding circle
+				if dx * dx + dz * dz > bound_sq:
+					continue
+
+				# Rotate into ellipse-local space
+				var lx: float = dx * cos_r - dz * sin_r
+				var lz: float = dx * sin_r + dz * cos_r
+
+				# Normalized ellipse distance (1.0 = on edge)
+				var ellipse_d: float = (
+					(lx * lx) / (semi_long * semi_long)
+					+ (lz * lz) / (semi_short * semi_short)
+				)
+				if ellipse_d >= 1.0:
+					continue
+
+				var cell_idx: int = terrain.idx(gx, gz)
+				var zone: int = terrain.zones[cell_idx]
+
+				# Don't override green or tee zones
+				if zone == TerrainDataScript.ZoneType.GREEN \
+					or zone == TerrainDataScript.ZoneType.TEE:
+					continue
+
+				terrain.zones[cell_idx] = \
+					TerrainDataScript.ZoneType.BUNKER
+
+				# Bowl depression — smoothstep from edge
+				var dist_ratio: float = sqrt(ellipse_d)
+				var bowl: float = 1.0 - smoothstep(
+					0.0, 1.0, dist_ratio,
+				)
+
+				# Blend interior toward center height
+				# (smooths noise) then apply depression
+				var h: float = terrain.heights[cell_idx]
+				var smoothed: float = lerpf(
+					h, center_h, bowl * 0.7,
+				)
+				var depressed: float = smoothed - depth * bowl
+				# Keep bunkers above water/lava planes
+				if floor_h > -900.0:
+					depressed = maxf(depressed, floor_h)
+				terrain.heights[cell_idx] = depressed
 
 
 # -------------------------------------------------------------------------
