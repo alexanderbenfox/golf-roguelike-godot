@@ -12,6 +12,9 @@ var strokes_this_hole: int = 0
 var total_strokes: int = 0
 var is_hole_complete: bool = false
 
+# Club bag — array of ClubDefinition resources
+var club_bag: Array[Resource] = []
+
 # Roguelike modifiers — applied when building PhysicsParams
 var power_multiplier: float = 1.0
 var friction_modifier: float = 1.0

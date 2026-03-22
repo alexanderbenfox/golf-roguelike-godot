@@ -13,6 +13,10 @@ const ScorecardUIScript = preload("res://scripts/ui/scorecard_ui.gd")
 const DebugOverlayScript = preload("res://scripts/ui/debug_overlay.gd")
 const WindIndicatorScript = preload("res://scripts/ui/wind_indicator.gd")
 const WindParticlesScript = preload("res://scripts/ui/wind_particles.gd")
+const TerrainPowerMeterScript = preload("res://scripts/ui/terrain_power_meter.gd")
+const AngleDisplayScript = preload("res://scripts/ui/angle_display.gd")
+const ClubSelectorUIScript = preload("res://scripts/ui/club_selector_ui.gd")
+const HoleTrackerScript = preload("res://scripts/ui/hole_tracker.gd")
 
 ## Starting stats for the golfer — edit in Inspector to tune defaults.
 @export var golfer_stats: Resource  # GolferStats
@@ -38,6 +42,7 @@ var _scorecard: Control
 var _debug_overlay: DebugOverlay
 var _wind_indicator: WindIndicator
 var _wind_particles: Node3D
+var _hole_tracker: HoleTracker
 
 
 func _ready() -> void:
@@ -83,6 +88,24 @@ func _ready() -> void:
 	_wind_particles.camera_target = camera
 	add_child(_wind_particles)
 
+	# Swing UI elements
+	var _terrain_meter: TerrainPowerMeter = TerrainPowerMeterScript.new()
+	$UICanvas.add_child(_terrain_meter)
+	ball.terrain_power_meter = _terrain_meter
+
+	var _angle_disp: AngleDisplay = AngleDisplayScript.new()
+	$UICanvas.add_child(_angle_disp)
+	ball.angle_display = _angle_disp
+
+	var _club_sel: ClubSelectorUI = ClubSelectorUIScript.new()
+	$UICanvas.add_child(_club_sel)
+	ball.club_selector_ui = _club_sel
+
+	# Hole tracker (screen-space cup indicator)
+	_hole_tracker = HoleTrackerScript.new()
+	_hole_tracker.setup(camera)
+	$UICanvas.add_child(_hole_tracker)
+
 	# Debug overlay (toggle with F3)
 	_debug_overlay = DebugOverlayScript.new()
 	$UICanvas.add_child(_debug_overlay)
@@ -102,6 +125,13 @@ func _process(_delta: float) -> void:
 		_debug_overlay.set_value("Simulating", str(ball.is_simulating))
 		_debug_overlay.set_value("Is stopped", str(stopped))
 		_debug_overlay.set_value("Turn active", str(ball._turn_active))
+
+	# Update hole tracker each frame
+	if _hole_tracker and ball:
+		_hole_tracker.update_positions(
+			_hole_tracker.cup_world_position,
+			ball.global_position,
+		)
 
 
 func _setup_environment() -> void:
@@ -200,6 +230,9 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 		game_state.players.get(network_manager.get_my_peer_id()) as PlayerState
 	ball.setup_physics_params(my_player, layout.terrain_data)
 	ball.set_wind(layout.wind)
+	ball.cup_position = layout.cup_position
+	if _hole_tracker:
+		_hole_tracker.cup_world_position = layout.cup_position
 	_update_wind_indicator(layout.wind)
 
 	_show_hole_intro(_hole_number, _par)
@@ -264,9 +297,9 @@ func _show_distance_to_hole() -> void:
 		"font_color", Color(1.0, 1.0, 1.0, 0.9)
 	)
 	_distance_label.set_anchors_and_offsets_preset(
-		Control.PRESET_CENTER_BOTTOM
+		Control.PRESET_CENTER_TOP
 	)
-	_distance_label.offset_top = -60.0
+	_distance_label.offset_top = 40.0
 	$UICanvas.add_child(_distance_label)
 
 

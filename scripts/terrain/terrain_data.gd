@@ -160,6 +160,33 @@ func get_friction_at(world_x: float, world_z: float) -> float:
 			return 1.5
 
 
+## Returns the display color for a zone type from the biome.
+## Falls back to hardcoded defaults when no biome is set.
+func get_zone_color(zone_type: int) -> Color:
+	if biome and biome.zones and zone_type >= 0 and zone_type < biome.zones.size():
+		return biome.zones[zone_type].color
+	# Fallback colors
+	match zone_type:
+		ZoneType.FAIRWAY:
+			return Color(0.2, 0.6, 0.2)
+		ZoneType.ROUGH:
+			return Color(0.3, 0.45, 0.15)
+		ZoneType.GREEN:
+			return Color(0.15, 0.7, 0.2)
+		ZoneType.TEE:
+			return Color(0.5, 0.5, 0.5)
+		ZoneType.BUNKER:
+			return Color(0.85, 0.75, 0.5)
+		ZoneType.WATER:
+			return Color(0.15, 0.3, 0.65)
+		ZoneType.LAVA:
+			return Color(0.9, 0.3, 0.05)
+		ZoneType.OOB:
+			return Color(0.3, 0.25, 0.15)
+		_:
+			return Color(0.3, 0.3, 0.3)
+
+
 ## Returns true if the position is in a water hazard.
 func is_water_at(world_x: float, world_z: float) -> bool:
 	return water_height > -900.0 and get_height_at(world_x, world_z) < water_height

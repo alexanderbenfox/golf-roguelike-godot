@@ -24,6 +24,10 @@ extends Resource
 ## Shot accuracy. 0.0 = max spread, 1.0 = perfect aim.
 @export_range(0.0, 1.0, 0.05) var accuracy: float = 0.7
 
+@export_group("Clubs")
+## Default club bag. Order matters — first club is selected at start.
+@export var club_bag: Array[Resource] = []
+
 
 ## Applies these starting stats onto a PlayerState, resetting modifiers.
 func apply_to(player: PlayerState) -> void:
@@ -32,3 +36,5 @@ func apply_to(player: PlayerState) -> void:
 	player.bounce_modifier = bounce_modifier
 	player.gravity_scale = gravity_scale
 	player.accuracy = accuracy
+	if club_bag.size() > 0:
+		player.club_bag = club_bag.duplicate()

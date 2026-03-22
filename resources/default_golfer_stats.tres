@@ -4,6 +4,6 @@
 
 [resource]
 script = ExtResource("1")
-friction_modifier = 0.75
+friction_modifier = 0.1
 bounce_modifier = 1.5
-gravity_scale = 3.8000000000000003
+gravity_scale = 3.8

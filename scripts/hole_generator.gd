@@ -190,6 +190,12 @@ static func generate(
 		bunkers,
 	)
 
+	# Update cup position to sit on the actual terrain surface
+	if layout.terrain_data:
+		layout.cup_position.y = layout.terrain_data.get_height_at(
+			layout.cup_position.x, layout.cup_position.z
+		)
+
 	return layout
 
 

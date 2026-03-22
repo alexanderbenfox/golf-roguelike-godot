@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="ClubDefinition" format=3 uid="uid://cv2tfkxz1t0pi"]
+
+[ext_resource type="Script" uid="uid://l20waxmmkwwy3" path="res://resources/club_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "iron_5"
+display_name = "5-Iron"
+club_type = 1
+power_scale = 0.65
+min_angle_deg = 20.0
+max_angle_deg = 35.0
+default_angle_deg = 28.0
+swing_fill_speed = 7.5
+swing_return_speed = 7.0
+sweet_spot_scale = 1.0
+landing_bounce = 0.8
+landing_friction = 1.0
+suggest_min_distance = 50.0
+suggest_max_distance = 140.0

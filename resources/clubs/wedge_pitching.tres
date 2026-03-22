@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="ClubDefinition" format=3 uid="uid://sedvpk2aeg9lp"]
+
+[ext_resource type="Script" uid="uid://l20waxmmkwwy3" path="res://resources/club_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "wedge_pitching"
+display_name = "Pitching Wedge"
+club_type = 3
+power_scale = 0.4
+min_angle_deg = 38.0
+max_angle_deg = 55.0
+default_angle_deg = 45.0
+swing_fill_speed = 6.0
+swing_return_speed = 5.0
+sweet_spot_scale = 1.2
+landing_bounce = 0.3
+landing_friction = 2.0
+suggest_min_distance = 0.0
+suggest_max_distance = 80.0
+suggest_zones = Array[int]([4])

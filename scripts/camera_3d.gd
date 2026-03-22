@@ -214,6 +214,23 @@ func _process(delta: float) -> void:
 		var adjusted_height: float = max(ground_height + min_height, desired_pos.y)
 		desired_pos.y = adjusted_height
 
+	# Terrain occlusion — pull camera closer if terrain blocks view of the ball
+	var ball_center: Vector3 = follow_target.global_position + Vector3(0.0, 0.5, 0.0)
+	var occlusion_query := PhysicsRayQueryParameters3D.create(
+		ball_center, desired_pos
+	)
+	occlusion_query.collision_mask = ground_check_layers
+	var occlusion_result: Dictionary = space_state.intersect_ray(occlusion_query)
+	if occlusion_result:
+		var hit_pos: Vector3 = occlusion_result["position"]
+		# Place camera 85% of the way from ball to hit point
+		desired_pos = ball_center.lerp(hit_pos, 0.85)
+		# Ensure camera stays above a minimum height relative to ball
+		desired_pos.y = maxf(
+			desired_pos.y,
+			follow_target.global_position.y + min_height,
+		)
+
 	global_position = global_position.lerp(desired_pos, smoothness * delta)
 	look_at(follow_target.global_position + Vector3(0.0, 0.5, 0.0))
 

@@ -104,12 +104,11 @@ layout_mode = 0
 [node name="GolfBall" parent="." unique_id=1085271892 instance=ExtResource("2_a0tk4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3279471, 0)
 
-[node name="RigidBody3D" parent="GolfBall" index="0" node_paths=PackedStringArray("power_meter_ui")]
+[node name="RigidBody3D" parent="GolfBall" index="0"]
 linear_damp_mode = 1
 linear_damp = 1.5
 angular_damp_mode = 1
 angular_damp = 2.5
-power_meter_ui = NodePath("../../UICanvas/ProgressBar")
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1735598864 node_paths=PackedStringArray("follow_target")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5283225, 2.6659837)

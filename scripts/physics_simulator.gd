@@ -71,7 +71,6 @@ static func simulate_step(state: SimulationState, params: PhysicsParams, delta: 
 		)
 
 	if new_state.position.y <= ground_h + params.ball_radius:
-		new_state.is_on_ground = true
 		new_state.position.y = ground_h + params.ball_radius
 
 		# Terrain normal (flat ground = straight up)
@@ -81,42 +80,86 @@ static func simulate_step(state: SimulationState, params: PhysicsParams, delta: 
 				new_state.position.x, new_state.position.z
 			)
 
-		if new_state.velocity.y < 0.0:
-			var combined_bounce := params.ball_bounce * params.ground_bounce
-			new_state.velocity.y = -new_state.velocity.y * combined_bounce
+		var was_on_ground: bool = state.is_on_ground
+		new_state.is_on_ground = true
 
-			if abs(new_state.velocity.y) < 0.5:
-				new_state.velocity.y = 0.0
+		if not was_on_ground and new_state.velocity.y < 0.0:
+			# First impact — bounce off the surface normal (not just Y)
+			var vel_into_surface: float = -new_state.velocity.dot(ground_normal)
+			if vel_into_surface > 0.0:
+				var combined_bounce := params.ball_bounce * params.ground_bounce
+				new_state.velocity += ground_normal * vel_into_surface * (1.0 + combined_bounce)
+				# Kill tiny bounces so the ball settles
+				if new_state.velocity.dot(ground_normal) < 0.5:
+					# Remove velocity component into the surface, keep tangent
+					var normal_comp: float = new_state.velocity.dot(ground_normal)
+					if normal_comp < 0.0:
+						new_state.velocity -= ground_normal * normal_comp
+		else:
+			# Already on the ground — constrain velocity to the surface plane.
+			# Remove the component going into the surface so the ball slides
+			# along it instead of micro-bouncing every frame.
+			var normal_comp: float = new_state.velocity.dot(ground_normal)
+			if normal_comp < 0.0:
+				new_state.velocity -= ground_normal * normal_comp
 
-		if new_state.position.y <= ground_h + params.ball_radius + 0.01:
-			# Project gravity onto slope surface to accelerate ball downhill
-			var slope_force: Vector3 = gravity_vector - ground_normal * gravity_vector.dot(ground_normal)
+		# Apply slope force and friction while on the surface
+		# Project gravity onto slope to accelerate ball downhill
+		var slope_force: Vector3 = gravity_vector - ground_normal * gravity_vector.dot(ground_normal)
+
+		# Compute friction parameters up front
+		var zone_friction: float = params.ground_friction
+		if params.terrain:
+			zone_friction = params.terrain.get_friction_at(
+				new_state.position.x, new_state.position.z,
+			)
+		var combined_friction := params.ball_friction * zone_friction
+		var normal_force: float = ground_normal.y
+		var friction_accel: float = (
+			combined_friction * gravity * params.gravity_scale * normal_force
+		)
+
+		var horizontal_velocity := Vector3(new_state.velocity.x, 0.0, new_state.velocity.z)
+		var horizontal_speed := horizontal_velocity.length()
+		var slope_horizontal := Vector3(slope_force.x, 0.0, slope_force.z)
+		var slope_accel := slope_horizontal.length()
+
+		if horizontal_speed < 0.1:
+			# Low speed — static friction model.
+			# Ball only moves if slope force exceeds friction threshold.
+			if slope_accel > friction_accel and slope_accel > 0.001:
+				var net_accel := slope_accel - friction_accel
+				var downhill_dir := slope_horizontal.normalized()
+				new_state.velocity.x += downhill_dir.x * net_accel * delta
+				new_state.velocity.z += downhill_dir.z * net_accel * delta
+			else:
+				new_state.velocity.x = 0.0
+				new_state.velocity.z = 0.0
+		else:
+			# Moving — apply slope force then kinetic friction
 			new_state.velocity += slope_force * delta
+			horizontal_velocity = Vector3(new_state.velocity.x, 0.0, new_state.velocity.z)
+			horizontal_speed = horizontal_velocity.length()
 
-			var horizontal_velocity := Vector3(new_state.velocity.x, 0.0, new_state.velocity.z)
-
-			if horizontal_velocity.length() > 0.01:
-				var zone_friction: float = params.ground_friction
-				if params.terrain:
-					zone_friction = params.terrain.get_friction_at(
-						new_state.position.x,
-						new_state.position.z,
-					)
-				var combined_friction := params.ball_friction * zone_friction
+			if horizontal_speed > 0.001:
 				var friction_force := (
-					-horizontal_velocity.normalized()
-					* combined_friction
-					* gravity * params.gravity_scale * delta
+					-horizontal_velocity.normalized() * friction_accel * delta
 				)
-
 				var new_horizontal := horizontal_velocity + friction_force
 
 				if new_horizontal.dot(horizontal_velocity) > 0.0:
 					new_state.velocity.x = new_horizontal.x
 					new_state.velocity.z = new_horizontal.z
 				else:
-					new_state.velocity.x = 0.0
-					new_state.velocity.z = 0.0
+					# Friction would stop the ball — check slope vs static friction
+					if slope_accel > friction_accel:
+						var net_accel := slope_accel - friction_accel
+						var downhill_dir := slope_horizontal.normalized()
+						new_state.velocity.x = downhill_dir.x * net_accel * delta
+						new_state.velocity.z = downhill_dir.z * net_accel * delta
+					else:
+						new_state.velocity.x = 0.0
+						new_state.velocity.z = 0.0
 	else:
 		new_state.is_on_ground = false
 
@@ -152,9 +195,33 @@ static func simulate_trajectory(
 
 # Check if simulation has stopped.
 # On the ground, use a higher threshold for horizontal speed so the ball
-# doesn't creep along at near-zero speed on gentle slopes.
-static func is_stopped(state: SimulationState, threshold: float = 0.1) -> bool:
+# doesn't creep along at near-zero speed. But on slopes, require the slope
+# force to be negligible before stopping — otherwise the ball should roll.
+static func is_stopped(state: SimulationState, threshold: float = 0.1, params: PhysicsParams = null) -> bool:
 	if state.is_on_ground:
 		var horizontal_speed: float = Vector2(state.velocity.x, state.velocity.z).length()
-		return horizontal_speed < threshold * 4.0
+		if horizontal_speed >= threshold * 4.0:
+			return false
+
+		# Check if slope would keep the ball rolling
+		if params and params.terrain:
+			var ground_normal: Vector3 = params.terrain.get_normal_at(
+				state.position.x, state.position.z
+			)
+			# Slope steepness: 1.0 = flat, <1.0 = sloped
+			var steepness: float = ground_normal.y
+			if steepness < 0.98:
+				# On a slope — compute whether slope force exceeds friction
+				var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
+				var gravity_vector := Vector3(0.0, -gravity * params.gravity_scale, 0.0)
+				var slope_force: Vector3 = gravity_vector - ground_normal * gravity_vector.dot(ground_normal)
+				var zone_friction: float = params.terrain.get_friction_at(
+					state.position.x, state.position.z
+				)
+				var normal_force: float = ground_normal.y
+				var friction_mag: float = params.ball_friction * zone_friction * gravity * params.gravity_scale * normal_force
+				# If slope force can overcome friction, ball should keep rolling
+				if slope_force.length() > friction_mag:
+					return false
+		return true
 	return state.velocity.length() < threshold

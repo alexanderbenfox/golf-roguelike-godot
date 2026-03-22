@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="ClubDefinition" format=3 uid="uid://29bbo2v43cm5m"]
+
+[ext_resource type="Script" uid="uid://l20waxmmkwwy3" path="res://resources/club_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "driver"
+display_name = "Driver"
+club_type = 0
+power_scale = 1.0
+min_angle_deg = 8.0
+max_angle_deg = 18.0
+default_angle_deg = 12.0
+swing_fill_speed = 9.0
+swing_return_speed = 10.0
+sweet_spot_scale = 0.7
+landing_bounce = 1.0
+landing_friction = 0.8
+suggest_min_distance = 120.0
+suggest_max_distance = 999.0
+suggest_zones = Array[int]([0])
