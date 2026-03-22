@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://b0denb2w1toja"]
+[gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://cbprbvfpypwx5"]
 
 [ext_resource type="Script" uid="uid://c3c6yhmn05vye" path="res://resources/biome_definition.gd" id="1"]
 [ext_resource type="Script" uid="uid://cjg0bg5b8i6pa" path="res://resources/zone_definition.gd" id="2"]
@@ -89,7 +89,7 @@ valley_shape = 1.2
 
 [resource]
 script = ExtResource("1")
-biome_name = "Canyon"
+biome_name = "Ascending Canyon"
 zones = Array[ExtResource("2")]([SubResource("z0"), SubResource("z1"), SubResource("z2"), SubResource("z3"), SubResource("z4"), SubResource("z5"), SubResource("z6"), SubResource("z7")])
 terrain_amplitude = 8.0
 terrain_frequency = 0.018
@@ -103,18 +103,23 @@ plateau_levels = 4
 fairway_flatten_strength = 0.7
 green_flatten_radius = 12.0
 tee_flatten_radius = 6.0
-fairway_width_variation = 0.5
+fairway_width_variation = 0.45
 water_height = -0.5
 hazard_definitions = Array[Resource]([SubResource("he_rock")])
 base_wind_strength = 2.5
 wind_variance = 2.0
-curve_min_bends = 2
-curve_max_bends = 4
-curve_tightness = 0.7
-curve_s_bias = 0.6
-curve_smoothing = 3
-curve_spread = 0.6
-inter_curve_density = 0.7
+terrain_archetype = 4
+step_count = 4
+step_height = 7.5
+step_steepness = 0.85
+step_platform_scale = 2.0
+curve_min_bends = 3
+curve_max_bends = 5
+curve_tightness = 0.8
+curve_s_bias = 0.7
+curve_smoothing = 2
+curve_spread = 0.8999999999999999
+inter_curve_density = 0.6
 slope_color = Color(0.55, 0.3, 0.2, 1)
 slope_threshold = 0.25
 slope_color_strength = 0.85

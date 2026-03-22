@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://c4bladhnojbml"]
+[gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://cdonutmeadow1"]
 
 [ext_resource type="Script" uid="uid://c3c6yhmn05vye" path="res://resources/biome_definition.gd" id="1"]
 [ext_resource type="Script" uid="uid://cjg0bg5b8i6pa" path="res://resources/zone_definition.gd" id="2"]
@@ -73,17 +73,19 @@ hill_scale = 1.2
 
 [resource]
 script = ExtResource("1")
+biome_name = "Donut Meadow"
 zones = Array[ExtResource("2")]([SubResource("z0"), SubResource("z1"), SubResource("z2"), SubResource("z3"), SubResource("z4"), SubResource("z5"), SubResource("z6"), SubResource("z7")])
 plateau_factor = 0.3
 fairway_width_variation = 0.35
 water_height = 0.0
 base_wind_strength = 1.0
 wind_variance = 1.5
+terrain_archetype = 3
 curve_min_bends = 2
 curve_max_bends = 3
 curve_tightness = 0.55
 curve_s_bias = 0.85
 curve_smoothing = 4
-curve_spread = 0.5
-inter_curve_density = 0.5
+curve_spread = 0.45
+inter_curve_density = 0.4
 slope_threshold = 0.3

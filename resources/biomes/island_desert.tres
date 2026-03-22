@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://c221bvdvk4nul"]
+[gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://3o5p8mk55im"]
 
 [ext_resource type="Script" uid="uid://c3c6yhmn05vye" path="res://resources/biome_definition.gd" id="1"]
 [ext_resource type="Script" uid="uid://cjg0bg5b8i6pa" path="res://resources/zone_definition.gd" id="2"]
@@ -86,7 +86,7 @@ hill_shape = 1.2
 
 [resource]
 script = ExtResource("1")
-biome_name = "Desert"
+biome_name = "Oasis Desert"
 zones = Array[ExtResource("2")]([SubResource("z0"), SubResource("z1"), SubResource("z2"), SubResource("z3"), SubResource("z4"), SubResource("z5"), SubResource("z6"), SubResource("z7")])
 terrain_amplitude = 4.5
 terrain_frequency = 0.008
@@ -98,16 +98,22 @@ plateau_factor = 0.4
 fairway_flatten_strength = 0.9
 green_flatten_radius = 8.0
 fairway_width_variation = 0.4
+water_height = -0.5
 hazard_definitions = Array[Resource]([SubResource("he_geyser")])
 base_wind_strength = 4.0
 wind_variance = 3.0
+terrain_archetype = 1
+discontinuous_fairway = true
+island_radius_min = 20.0
+island_radius_max = 45.0
+bridge_width_factor = 0.6
 curve_min_bends = 1
 curve_max_bends = 3
 curve_tightness = 0.45
 curve_s_bias = 0.6
 curve_smoothing = 5
-curve_spread = 0.4
-inter_curve_density = 0.35
+curve_spread = 0.35
+inter_curve_density = 0.3
 slope_color = Color(0.5, 0.4, 0.28, 1)
 slope_threshold = 0.35
 slope_color_strength = 0.75

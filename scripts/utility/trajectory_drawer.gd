@@ -54,6 +54,9 @@ func _setup_mesh() -> void:
 	add_child(_mesh_instance)
 	_mesh = ImmediateMesh.new()
 	_mesh_instance.mesh = _mesh
+	# Large custom AABB prevents frustum culling when trajectory extends
+	# far from the mesh origin (e.g. long shots toward the hole).
+	_mesh_instance.custom_aabb = AABB(Vector3(-5000, -500, -5000), Vector3(10000, 1000, 10000))
 	hide()
 
 

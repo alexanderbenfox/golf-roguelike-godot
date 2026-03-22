@@ -67,7 +67,18 @@ func is_out_of_bounds(world_pos: Vector3) -> bool:
 	if world_pos.y < -10.0:
 		return true
 
-	# Transform world position into the hole's rotated local coordinate system
+	# Use terrain grid bounds if available (works for doglegs and all archetypes)
+	if layout.terrain_data:
+		var terrain: RefCounted = layout.terrain_data
+		var buffer: float = 5.0
+		var x_min: float = terrain.origin.x + buffer
+		var x_max: float = terrain.origin.x + terrain.grid_width * terrain.cell_size - buffer
+		var z_min: float = terrain.origin.z + buffer
+		var z_max: float = terrain.origin.z + terrain.grid_depth * terrain.cell_size - buffer
+		return world_pos.x < x_min or world_pos.x > x_max \
+			or world_pos.z < z_min or world_pos.z > z_max
+
+	# Fallback: rotated OBB check (legacy)
 	var relative: Vector3 = world_pos - global_position - _bounds_center
 	var cos_a: float = cos(-_bounds_angle)
 	var sin_a: float = sin(-_bounds_angle)
@@ -84,9 +95,9 @@ func is_out_of_bounds(world_pos: Vector3) -> bool:
 func _build_terrain() -> void:
 	var dir := Vector3(sin(layout.hole_direction), 0.0, -cos(layout.hole_direction))
 
-	# OOB bounds (same dimensions as before)
-	var ground_width: float = layout.fairway_width + 60.0
-	var ground_len: float = layout.hole_length + 40.0
+	# OOB bounds — scale margin with hole length for larger courses
+	var ground_width: float = layout.fairway_width + maxf(60.0, layout.hole_length * 0.2)
+	var ground_len: float = layout.hole_length + maxf(40.0, layout.hole_length * 0.15)
 	_bounds_center = dir * (layout.hole_length * 0.5)
 	_bounds_half_width = ground_width * 0.5
 	_bounds_half_length = ground_len * 0.5

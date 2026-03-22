@@ -1,6 +1,8 @@
 extends Camera3D
 
-enum Mode { ORBIT, FOLLOW_SHOT }
+const PolylineUtilsScript = preload("res://scripts/utility/polyline_utils.gd")
+
+enum Mode { ORBIT, FOLLOW_SHOT, FLYOVER }
 
 @export var follow_target: Node3D
 @export var distance: float = 10.0
@@ -36,6 +38,17 @@ const FOLLOW_LOOK_AHEAD: float = 3.0
 var _mode: Mode = Mode.ORBIT
 var _follow_velocity: Vector3 = Vector3.ZERO
 var _last_follow_dir: Vector3 = Vector3.FORWARD
+
+# Flyover mode — cinematic pan along the course (Mario Kart style)
+const FLYOVER_HEIGHT: float = 20.0
+const FLYOVER_LOOK_AHEAD_T: float = 0.08
+const FLYOVER_SMOOTHNESS: float = 5.0
+
+var _flyover_spine: Array[Vector3] = []
+var _flyover_progress: float = 0.0
+var _flyover_duration: float = 3.0
+
+signal flyover_completed
 
 
 ## Immediately snap the camera to its orbit position around the follow target.
@@ -86,7 +99,41 @@ func stop_follow_shot() -> void:
 		camera_angle = atan2(offset.x, offset.z)
 
 
+## Start a cinematic flyover along the course spine (cup → tee).
+## Duration auto-scales by spine length: ~1s per 100m, clamped 2-5s.
+func start_flyover(spine: Array[Vector3]) -> void:
+	_mode = Mode.FLYOVER
+	input_enabled = false
+	# Reverse spine so camera flies from cup → tee
+	_flyover_spine = spine.duplicate()
+	_flyover_spine.reverse()
+	_flyover_progress = 0.0
+	# Scale duration by spine length
+	var spine_length: float = PolylineUtilsScript.total_length(_flyover_spine)
+	_flyover_duration = clampf(spine_length / 100.0, 2.0, 5.0)
+	# Snap to start position
+	var start_pos: Vector3 = _flyover_spine[0]
+	global_position = Vector3(start_pos.x, start_pos.y + FLYOVER_HEIGHT, start_pos.z)
+
+
+## Skip the flyover and jump straight to orbit mode.
+func skip_flyover() -> void:
+	if _mode == Mode.FLYOVER:
+		_end_flyover()
+
+
+func _end_flyover() -> void:
+	_mode = Mode.ORBIT
+	input_enabled = true
+	flyover_completed.emit()
+
+
 func _process(delta: float) -> void:
+	# Flyover mode — cinematic spine pan
+	if _mode == Mode.FLYOVER:
+		_process_flyover(delta)
+		return
+
 	if not follow_target:
 		return
 
@@ -191,7 +238,45 @@ func _process_follow_shot(delta: float) -> void:
 	look_at(look_target)
 
 
+func _process_flyover(delta: float) -> void:
+	_flyover_progress += delta / _flyover_duration
+	if _flyover_progress >= 1.0:
+		_flyover_progress = 1.0
+		_end_flyover()
+		return
+
+	# Camera position: sample spine at current progress, elevated
+	var cam_pos: Vector3 = PolylineUtilsScript.sample_position(
+		_flyover_spine, _flyover_progress,
+	)
+	cam_pos.y += FLYOVER_HEIGHT
+
+	# Look-ahead: sample slightly further along the spine
+	var look_t: float = minf(_flyover_progress + FLYOVER_LOOK_AHEAD_T, 1.0)
+	var look_pos: Vector3 = PolylineUtilsScript.sample_position(
+		_flyover_spine, look_t,
+	)
+	# Look downward at the course, not at flyover height
+	look_pos.y += FLYOVER_HEIGHT * 0.3
+
+	# Slight lateral offset for cinematic feel
+	var fly_dir: Vector3 = PolylineUtilsScript.sample_direction(
+		_flyover_spine, _flyover_progress,
+	)
+	var fly_right: Vector3 = PolylineUtilsScript.direction_to_right(fly_dir)
+	cam_pos += fly_right * 5.0
+
+	global_position = global_position.lerp(cam_pos, FLYOVER_SMOOTHNESS * delta)
+	look_at(look_pos)
+
+
 func _input(event: InputEvent) -> void:
+	# During flyover, any key/button press skips it
+	if _mode == Mode.FLYOVER:
+		if event is InputEventKey or event is InputEventJoypadButton:
+			if event.pressed:
+				_end_flyover()
+		return
 	if not input_enabled:
 		return
 	if _mode == Mode.FOLLOW_SHOT:

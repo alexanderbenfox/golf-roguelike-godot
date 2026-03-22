@@ -145,7 +145,7 @@ static func simulate_trajectory(
 			positions.append(state.position)
 			break
 
-		if state.position.length() > 200.0:
+		if state.position.distance_to(start_position) > 2000.0:
 			break
 
 	return positions

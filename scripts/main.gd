@@ -196,10 +196,6 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 	ball.reset_position(tee_position)
 	ball.set_bounds_check(current_hole.is_out_of_bounds)
 
-	# Point camera toward the cup and snap to position
-	var to_cup: Vector3 = layout.cup_position - tee_position
-	camera.camera_angle = atan2(-to_cup.x, -to_cup.z)
-	camera.snap_to_target()
 	var my_player: PlayerState = \
 		game_state.players.get(network_manager.get_my_peer_id()) as PlayerState
 	ball.setup_physics_params(my_player, layout.terrain_data)
@@ -207,6 +203,24 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 	_update_wind_indicator(layout.wind)
 
 	_show_hole_intro(_hole_number, _par)
+
+	# Start camera flyover along the course spine before giving player control
+	if layout.fairway_spine.size() >= 2:
+		camera.start_flyover(layout.fairway_spine)
+		camera.flyover_completed.connect(
+			_on_flyover_completed.bind(layout, tee_position),
+			CONNECT_ONE_SHOT,
+		)
+	else:
+		# No spine — skip flyover (shouldn't happen, but safe fallback)
+		_on_flyover_completed(layout, tee_position)
+
+
+func _on_flyover_completed(layout: HoleGenerator.HoleLayout, tee_position: Vector3) -> void:
+	# Point camera toward the cup and snap to orbit around the ball
+	var to_cup: Vector3 = layout.cup_position - tee_position
+	camera.camera_angle = atan2(-to_cup.x, -to_cup.z)
+	camera.snap_to_target()
 	turn_manager.start_hole(tee_position)
 
 

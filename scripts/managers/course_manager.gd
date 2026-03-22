@@ -97,7 +97,7 @@ func _resolve_sequence() -> Array[Dictionary]:
 ## Level 0 (0 runs):   9 Meadow
 ## Level 1 (2+ runs):  5 Meadow, 4 Canyon
 ## Level 2 (5+ runs):  3 Meadow, 3 Canyon, 3 Desert
-## Level 3 (10+ runs): 2 Meadow, 3 Canyon, 4 Desert
+## Level 3 (10+ runs): 1 Meadow, 2 Island Meadow, 2 Valley Canyon, 2 Desert, 2 Ascending Canyon
 func _build_run_sequence() -> Array[Dictionary]:
 	# TODO: Re-enable when meta progression is ready for testing
 	# var level: int = MetaProgression.meta_level if MetaProgression else 0
@@ -119,10 +119,15 @@ func _build_run_sequence() -> Array[Dictionary]:
 			result.append(_seg(canyon, 3, 2.5, 35.0))
 			result.append(_seg(desert, 3, 2.0, 35.0))
 		_:
-			# Level 3+: skew toward harder biomes
-			result.append(_seg(meadow, 2))
-			result.append(_seg(canyon, 3, 2.5, 35.0))
-			result.append(_seg(desert, 4, 2.0, 35.0))
+			# Level 3+: archetype variants for terrain variety
+			var island_meadow := BiomeDefinitionScript.create_island_meadow()
+			var valley_canyon := BiomeDefinitionScript.create_valley_canyon()
+			var ascending := BiomeDefinitionScript.create_ascending_canyon()
+			result.append(_seg(meadow, 1))
+			result.append(_seg(island_meadow, 2))
+			result.append(_seg(valley_canyon, 2, 2.5, 35.0))
+			result.append(_seg(desert, 2, 2.0, 35.0))
+			result.append(_seg(ascending, 2, 2.5, 35.0))
 
 	return result
 

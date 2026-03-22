@@ -23,16 +23,50 @@ extends Resource
 ## 1.0 = default lengths. 0.75 = shorter holes. 1.5 = longer holes.
 @export_range(0.5, 2.0, 0.05) var length_multiplier: float = 1.0
 
+## ---- Course scale -----------------------------------------------------------
+
+## Overall course size multiplier. Scales both hole lengths and fairway widths.
+## 1.0 = default (large courses). Stacks with length_multiplier and
+## fairway_width_scale for fine-grained control.
+@export_range(0.5, 3.0, 0.1) var size_scale: float = 1.0
+
 ## ---- Fairway ----------------------------------------------------------------
 
 ## Scales the fairway width range. > 1.0 = wider (easier). < 1.0 = narrower (harder).
 @export_range(0.25, 2.0, 0.05) var fairway_width_scale: float = 1.0
+
+## Width variation along the fairway (0.0 = uniform, 1.0 = ±50% variation).
+## Biome override takes precedence when set.
+@export_range(0.0, 1.0, 0.05) var fairway_width_variation: float = 0.0
 
 ## ---- Direction variety ------------------------------------------------------
 
 ## How much holes deviate from straight forward.
 ## 0.0 = all holes go straight. 1.0 = full ±50° variance.
 @export_range(0.0, 1.0, 0.05) var direction_variety: float = 1.0
+
+## ---- Curve control ----------------------------------------------------------
+
+## Minimum bends per hole. 0 = use par-based defaults.
+@export_range(0, 8) var min_bends: int = 0
+
+## Maximum bends per hole. 0 = use par-based defaults.
+@export_range(0, 8) var max_bends: int = 0
+
+## Turn angle intensity. 0.0 = very gentle (5–20°). 0.5 = default (30–75°).
+## 1.0 = tight hairpins (60–120°).
+@export_range(0.0, 1.0, 0.05) var curve_tightness: float = 0.5
+
+## Bias toward S-curves (alternating left-right bends).
+## 0.0 = random direction each bend. 1.0 = always alternate.
+@export_range(0.0, 1.0, 0.05) var s_curve_bias: float = 0.0
+
+## Smoothing subdivisions per bend. 0 = sharp doglegs. Higher = smoother arcs.
+@export_range(0, 8) var curve_smoothing: int = 0
+
+## How far curves spread sideways. 0.0 = no amplification.
+## 1.0 = dramatic horizontal extent (~3.5× perpendicular displacement).
+@export_range(0.0, 1.0, 0.05) var curve_spread: float = 0.0
 
 ## ---- Biome ------------------------------------------------------------------
 

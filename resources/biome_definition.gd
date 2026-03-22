@@ -67,6 +67,10 @@ const TerrainDataScript = preload("res://scripts/terrain/terrain_data.gd")
 ## Radius of the flattened area around the tee (metres).
 @export_range(2.0, 10.0, 0.5) var tee_flatten_radius: float = 5.0
 
+## Width variation along the fairway. 0.0 = uniform width,
+## 1.0 = dramatic ±50% width pulses (wider landing zones, narrow chokes).
+@export_range(0.0, 1.0, 0.05) var fairway_width_variation: float = 0.0
+
 @export_group("Hazards")
 
 ## Height below which terrain becomes water. Set to -999 to disable.
@@ -86,6 +90,116 @@ const TerrainDataScript = preload("res://scripts/terrain/terrain_data.gd")
 
 ## Random ± range around base strength per hole.
 @export_range(0.0, 10.0, 0.1) var wind_variance: float = 0.0
+
+@export_group("Terrain Archetype")
+
+enum TerrainArchetype {
+	CONTINENTAL = 0,        ## Default: noise-based terrain with carved fairway
+	ISLAND = 1,             ## Base below water, raised island blobs + bridges
+	VALLEY_CORRIDOR = 2,    ## High base, carved winding valley between ridges
+	DONUT_LAKE = 3,         ## Ring-shaped course around a central pond
+	ASCENDING_PLATEAU = 4,  ## Stacked elevation tiers, hole near the top
+}
+
+## Controls the fundamental terrain shape for this biome.
+@export var terrain_archetype: TerrainArchetype = TerrainArchetype.CONTINENTAL
+
+## When true, the fairway has gaps (water/rough breaks) the player must
+## hit across. Works with any archetype.
+@export var discontinuous_fairway: bool = false
+
+@export_subgroup("Island")
+
+## Number of island blobs (auto-scaled slightly by par).
+@export_range(2, 6) var island_count: int = 3
+
+## Minimum island radius (metres).
+@export_range(10.0, 40.0, 0.5) var island_radius_min: float = 15.0
+
+## Maximum island radius (metres).
+@export_range(20.0, 60.0, 0.5) var island_radius_max: float = 35.0
+
+## Organic edge variation — noise-perturbed island boundaries (0 = circle).
+@export_range(0.0, 1.0, 0.05) var island_noise_distortion: float = 0.3
+
+## Bridge width as fraction of fairway width (connects islands).
+@export_range(0.5, 1.0, 0.05) var bridge_width_factor: float = 0.7
+
+@export_subgroup("Valley Corridor")
+
+## Corridor width as multiple of fairway_width.
+@export_range(1.0, 3.0, 0.1) var corridor_width_multiplier: float = 1.5
+
+## Wall steepness (0 = gentle slopes, 1 = near-vertical cliffs).
+@export_range(0.0, 1.0, 0.05) var wall_steepness: float = 0.7
+
+## Chance of side pockets along corridor for bunkers/shortcuts.
+@export_range(0.0, 1.0, 0.1) var alcove_density: float = 0.3
+
+## Height of surrounding ridges above the valley floor (metres).
+@export_range(5.0, 20.0, 0.5) var ridge_height: float = 12.0
+
+@export_subgroup("Donut Lake")
+
+## Minimum radius of the central lake (metres).
+@export_range(15.0, 60.0, 1.0) var lake_radius_min: float = 25.0
+
+## Maximum radius of the central lake (metres).
+@export_range(20.0, 80.0, 1.0) var lake_radius_max: float = 40.0
+
+## Depth below water_height for the lake bed (metres).
+@export_range(0.5, 5.0, 0.1) var lake_depth: float = 2.0
+
+@export_subgroup("Ascending Plateau")
+
+## Number of discrete elevation tiers from tee to cup.
+@export_range(2, 6) var step_count: int = 3
+
+## Height gain per tier (metres).
+@export_range(2.0, 10.0, 0.5) var step_height: float = 4.0
+
+## Random ± variation applied to each tier's height (metres).
+## 0 = uniform steps, higher = irregular staircase.
+@export_range(0.0, 5.0, 0.5) var step_height_variation: float = 1.5
+
+## Steepness of transitions between tiers (0 = gentle ramp, 1 = cliff).
+@export_range(0.0, 1.0, 0.05) var step_steepness: float = 0.7
+
+## Platform radius multiplier — controls how wide each step/platform is
+## relative to the fairway width (1.0 = compact, 3.0 = sprawling).
+@export_range(0.8, 4.0, 0.1) var step_platform_scale: float = 1.8
+
+@export_group("Curve Routing")
+
+## Per-biome curve overrides. -1 = use HoleGenConfig default.
+
+## Minimum bends per hole for this biome (-1 = use config).
+@export_range(-1, 8) var curve_min_bends: int = -1
+
+## Maximum bends per hole for this biome (-1 = use config).
+@export_range(-1, 8) var curve_max_bends: int = -1
+
+## Turn angle intensity (-1.0 = use config).
+## 0.0 = gentle 5–20°, 0.5 = default 30–75°, 1.0 = tight 60–120°.
+@export_range(-1.0, 1.0, 0.05) var curve_tightness: float = -1.0
+
+## S-curve bias (-1.0 = use config).
+## 0.0 = random bend directions, 1.0 = always alternate left/right.
+@export_range(-1.0, 1.0, 0.05) var curve_s_bias: float = -1.0
+
+## Smoothing subdivisions per bend (-1 = use config).
+## 0 = sharp doglegs, higher = smoother arcs.
+@export_range(-1, 8) var curve_smoothing: int = -1
+
+## Horizontal spread amplification (-1.0 = use config).
+## 0.0 = no amplification. 1.0 = dramatic sideways extent.
+@export_range(-1.0, 1.0, 0.05) var curve_spread: float = -1.0
+
+@export_group("Inter-Curve Features")
+
+## Density of environmental features between S-curve legs.
+## 0.0 = empty rough, 1.0 = packed with hills, ponds, and trees.
+@export_range(0.0, 1.0, 0.05) var inter_curve_density: float = 0.0
 
 @export_group("Rendering")
 
@@ -177,6 +291,17 @@ static func create_meadow() -> BiomeDefinition:
 	biome.slope_color = Color(0.45, 0.35, 0.25)
 	biome.slope_threshold = 0.3
 	biome.slope_color_strength = 0.8
+	# Curves: sweeping S-bends with real horizontal spread
+	biome.curve_min_bends = 2
+	biome.curve_max_bends = 3
+	biome.curve_tightness = 0.55
+	biome.curve_s_bias = 0.85
+	biome.curve_smoothing = 4
+	biome.curve_spread = 0.5
+	# Width variation: gentle organic pulses
+	biome.fairway_width_variation = 0.35
+	# Between curves: ponds, hills, and scattered trees
+	biome.inter_curve_density = 0.5
 	# Noise defaults are already meadow-appropriate
 	biome.zones = [
 		_zone(
@@ -236,6 +361,17 @@ static func create_canyon() -> BiomeDefinition:
 	biome.slope_color = Color(0.55, 0.30, 0.20)
 	biome.slope_threshold = 0.25
 	biome.slope_color_strength = 0.85
+	# Curves: tight winding turns through the canyon
+	biome.curve_min_bends = 2
+	biome.curve_max_bends = 4
+	biome.curve_tightness = 0.75
+	biome.curve_s_bias = 0.7
+	biome.curve_smoothing = 3
+	biome.curve_spread = 0.6
+	# Width variation: dramatic narrows through canyon walls
+	biome.fairway_width_variation = 0.5
+	# Between curves: rocky outcrops and elevation changes
+	biome.inter_curve_density = 0.7
 	biome.terrain_amplitude = 8.0
 	biome.terrain_frequency = 0.018
 	biome.noise_octaves = 4
@@ -303,6 +439,17 @@ static func create_desert() -> BiomeDefinition:
 	biome.slope_color = Color(0.50, 0.40, 0.28)
 	biome.slope_threshold = 0.35
 	biome.slope_color_strength = 0.75
+	# Curves: sweeping bends across open dunes
+	biome.curve_min_bends = 1
+	biome.curve_max_bends = 3
+	biome.curve_tightness = 0.45
+	biome.curve_s_bias = 0.6
+	biome.curve_smoothing = 5
+	biome.curve_spread = 0.4
+	# Width variation: broad open sections, narrow dune passes
+	biome.fairway_width_variation = 0.4
+	# Between curves: dune ridges and sparse features
+	biome.inter_curve_density = 0.35
 	biome.terrain_amplitude = 4.5
 	biome.terrain_frequency = 0.008
 	biome.noise_octaves = 3
@@ -355,6 +502,105 @@ static func create_desert() -> BiomeDefinition:
 			1.5, 1.0, 1.2, 1.0,
 		),
 	]
+	return biome
+
+
+# ---- Archetype variant factories --------------------------------------------
+
+static func create_island_meadow() -> BiomeDefinition:
+	var biome := create_meadow()
+	biome.biome_name = "Island Meadow"
+	biome.terrain_archetype = TerrainArchetype.ISLAND
+	biome.water_height = 0.0
+	biome.island_count = 4
+	biome.island_radius_min = 18.0
+	biome.island_radius_max = 40.0
+	biome.bridge_width_factor = 0.7
+	# Curves: S-bends hopping between islands
+	biome.curve_min_bends = 2
+	biome.curve_max_bends = 3
+	biome.curve_tightness = 0.55
+	biome.curve_s_bias = 0.85
+	biome.curve_smoothing = 4
+	biome.curve_spread = 0.45
+	biome.inter_curve_density = 0.4
+	return biome
+
+
+static func create_valley_canyon() -> BiomeDefinition:
+	var biome := create_canyon()
+	biome.biome_name = "Valley Canyon"
+	biome.terrain_archetype = TerrainArchetype.VALLEY_CORRIDOR
+	biome.corridor_width_multiplier = 1.5
+	biome.wall_steepness = 0.75
+	biome.ridge_height = 12.0
+	# Curves: tight serpentine winding through the valley
+	biome.curve_min_bends = 3
+	biome.curve_max_bends = 5
+	biome.curve_tightness = 0.8
+	biome.curve_s_bias = 0.95
+	biome.curve_smoothing = 3
+	biome.curve_spread = 0.8
+	# Width: dramatic narrows and wide spots in the valley
+	biome.fairway_width_variation = 0.55
+	# Between curves: tall ridges blocking line-of-sight
+	biome.inter_curve_density = 0.9
+	return biome
+
+
+static func create_donut_meadow() -> BiomeDefinition:
+	var biome := create_meadow()
+	biome.biome_name = "Donut Meadow"
+	biome.terrain_archetype = TerrainArchetype.DONUT_LAKE
+	biome.water_height = 0.0
+	biome.lake_radius_min = 25.0
+	biome.lake_radius_max = 40.0
+	biome.lake_depth = 2.0
+	biome.curve_spread = 0.45
+	biome.inter_curve_density = 0.4
+	return biome
+
+
+static func create_ascending_canyon() -> BiomeDefinition:
+	var biome := create_canyon()
+	biome.biome_name = "Ascending Canyon"
+	biome.terrain_archetype = TerrainArchetype.ASCENDING_PLATEAU
+	biome.step_count = 4
+	biome.step_height = 5.0
+	biome.step_height_variation = 1.5
+	biome.step_steepness = 0.7
+	biome.step_platform_scale = 1.8
+	# Curves: winding bends between platforms
+	biome.curve_min_bends = 2
+	biome.curve_max_bends = 3
+	biome.curve_tightness = 0.6
+	biome.curve_s_bias = 0.7
+	biome.curve_smoothing = 3
+	biome.curve_spread = 0.5
+	# Width: wide platforms, narrow connecting paths
+	biome.fairway_width_variation = 0.45
+	# Between curves: elevated terrain between platforms
+	biome.inter_curve_density = 0.6
+	return biome
+
+
+static func create_island_desert() -> BiomeDefinition:
+	var biome := create_desert()
+	biome.biome_name = "Oasis Desert"
+	biome.terrain_archetype = TerrainArchetype.ISLAND
+	biome.water_height = -0.5
+	biome.island_count = 3
+	biome.island_radius_min = 20.0
+	biome.island_radius_max = 45.0
+	biome.bridge_width_factor = 0.6
+	# Curves: sweeps between oasis islands
+	biome.curve_min_bends = 1
+	biome.curve_max_bends = 3
+	biome.curve_tightness = 0.45
+	biome.curve_s_bias = 0.6
+	biome.curve_smoothing = 5
+	biome.curve_spread = 0.35
+	biome.inter_curve_density = 0.3
 	return biome
 
 
