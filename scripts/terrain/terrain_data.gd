@@ -58,6 +58,13 @@ var lava_height: float = -999.0
 ## When null, get_friction_at() falls back to sensible defaults.
 var biome: RefCounted = null  # BiomeDefinition
 
+# ---- Cup depression --------------------------------------------------------
+
+## Radius of the smooth bowl depression around the cup.
+var cup_depression_radius: float = 0.0
+## Depth at the centre of the cup depression.
+var cup_depression_depth: float = 0.0
+
 
 # -------------------------------------------------------------------------
 # Grid helpers
@@ -119,13 +126,38 @@ func get_height_at(world_x: float, world_z: float) -> float:
 
 	var h0: float = lerpf(h00, h10, tx)
 	var h1: float = lerpf(h01, h11, tx)
-	return lerpf(h0, h1, tz)
+	var h: float = lerpf(h0, h1, tz)
+
+	# Apply analytical cup depression overlay
+	if cup_depression_depth > 0.0 and cup_depression_radius > 0.0:
+		var cdx: float = world_x - cup_position.x
+		var cdz: float = world_z - cup_position.z
+		var dist_sq: float = cdx * cdx + cdz * cdz
+		var r_sq: float = cup_depression_radius * cup_depression_radius
+		if dist_sq < r_sq:
+			var norm: float = sqrt(dist_sq) / cup_depression_radius
+			# Steep-walled cup — flat bottom with near-vertical sides.
+			# The lip transition is confined to the outer 15% of the radius
+			# so the ball either drops in or rolls past.
+			var wall: float = clampf((norm - 0.85) / 0.15, 0.0, 1.0)
+			# Smooth the lip edge so normals aren't discontinuous
+			wall = wall * wall * (3.0 - 2.0 * wall)
+			h -= cup_depression_depth * (1.0 - wall)
+
+	return h
 
 
 ## Returns the surface normal at a world XZ position.
 ## Computed from the height gradient of neighbouring samples.
 func get_normal_at(world_x: float, world_z: float) -> Vector3:
 	var eps: float = cell_size
+	# Use fine-grained sampling near the cup depression so slope physics
+	# correctly guide the ball into (or over) the bowl.
+	if cup_depression_depth > 0.0 and cup_depression_radius > 0.0:
+		var cdx: float = world_x - cup_position.x
+		var cdz: float = world_z - cup_position.z
+		if cdx * cdx + cdz * cdz < cup_depression_radius * cup_depression_radius * 2.25:
+			eps = minf(eps, 0.1)
 	var h_left: float = get_height_at(world_x - eps, world_z)
 	var h_right: float = get_height_at(world_x + eps, world_z)
 	var h_down: float = get_height_at(world_x, world_z - eps)
@@ -188,10 +220,29 @@ func get_zone_color(zone_type: int) -> Color:
 
 
 ## Returns true if the position is in a water hazard.
+## The cup depression is excluded — it's a hole, not a pond.
 func is_water_at(world_x: float, world_z: float) -> bool:
-	return water_height > -900.0 and get_height_at(world_x, world_z) < water_height
+	if water_height <= -900.0:
+		return false
+	if _is_in_cup(world_x, world_z):
+		return false
+	return get_height_at(world_x, world_z) < water_height
 
 
 ## Returns true if the position is in a lava hazard.
+## The cup depression is excluded.
 func is_lava_at(world_x: float, world_z: float) -> bool:
-	return lava_height > -900.0 and get_height_at(world_x, world_z) < lava_height
+	if lava_height <= -900.0:
+		return false
+	if _is_in_cup(world_x, world_z):
+		return false
+	return get_height_at(world_x, world_z) < lava_height
+
+
+## True when the XZ position falls inside the cup depression floor.
+func _is_in_cup(world_x: float, world_z: float) -> bool:
+	if cup_depression_radius <= 0.0:
+		return false
+	var dx: float = world_x - cup_position.x
+	var dz: float = world_z - cup_position.z
+	return dx * dx + dz * dz < cup_depression_radius * cup_depression_radius

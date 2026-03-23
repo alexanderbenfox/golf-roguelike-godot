@@ -4,7 +4,7 @@
 ##   - Terrain mesh (vertex-coloured heightmap) with collision
 ##   - Tree obstacles (StaticBody3D with collision so ball bounces off)
 ##   - Bunkers (terrain-integrated — painted as BUNKER zones with bowl depressions)
-##   - Cup + flag (owns the Area3D and emits ball_entered_cup)
+##   - Cup + flag (visual + is_in_cup() for at-rest detection)
 ##
 ## Usage:
 ##   var hole = ProceduralHole.new()
@@ -13,7 +13,6 @@
 class_name ProceduralHole
 extends Node3D
 
-signal ball_entered_cup
 signal ball_hit_dynamic_hazard(impulse: Vector3)
 
 const TerrainMeshBuilderScript = preload("res://scripts/terrain/terrain_mesh_builder.gd")
@@ -290,6 +289,11 @@ func _build_cup() -> void:
 	_cup_area.name = "Cup"
 	add_child(_cup_area)
 
+	# Position the cup at the bottom of the depression
+	var depression_depth: float = 0.0
+	if layout.terrain_data:
+		depression_depth = layout.terrain_data.cup_depression_depth
+
 	var col := CollisionShape3D.new()
 	var shape := CylinderShape3D.new()
 	shape.radius = CUP_RADIUS
@@ -297,24 +301,29 @@ func _build_cup() -> void:
 	col.shape = shape
 	_cup_area.add_child(col)
 
-	_cup_area.global_position = layout.cup_position
-	_cup_area.body_entered.connect(_on_body_entered_cup)
+	var cup_pos := layout.cup_position
+	# Sink the cup area into the depression so the ball must physically
+	# roll down into it.
+	cup_pos.y -= depression_depth
+	_cup_area.global_position = cup_pos
 
-	_build_cup_visual()
+	_build_cup_visual(depression_depth)
 
 
-func _build_cup_visual() -> void:
-	# Black hole cylinder
+func _build_cup_visual(depression_depth: float = 0.0) -> void:
+	# Black hole cylinder — sized to fill the depression bowl
 	var hole := MeshInstance3D.new()
 	var hole_mesh := CylinderMesh.new()
 	hole_mesh.top_radius    = CUP_RADIUS
 	hole_mesh.bottom_radius = CUP_RADIUS
-	hole_mesh.height        = CUP_HEIGHT
+	hole_mesh.height        = maxf(CUP_HEIGHT, depression_depth)
 	hole.mesh = hole_mesh
 	hole.material_override = _flat_material(Color.BLACK)
+	# Centre the cylinder so its top is flush with the surrounding terrain
+	hole.position.y = maxf(CUP_HEIGHT, depression_depth) * 0.5
 	_cup_area.add_child(hole)
 
-	# Flag pole
+	# Flag pole — rises from terrain surface level
 	var pole := MeshInstance3D.new()
 	var pole_mesh := CylinderMesh.new()
 	pole_mesh.top_radius    = 0.02
@@ -322,7 +331,7 @@ func _build_cup_visual() -> void:
 	pole_mesh.height        = 2.0
 	pole.mesh = pole_mesh
 	pole.material_override = _flat_material(Color.WHITE)
-	pole.position = Vector3(0.0, 1.0, 0.0)
+	pole.position = Vector3(0.0, depression_depth + 1.0, 0.0)
 	_cup_area.add_child(pole)
 
 	# Flag
@@ -331,13 +340,21 @@ func _build_cup_visual() -> void:
 	flag_mesh.size = Vector3(0.5, 0.3, 0.02)
 	flag.mesh = flag_mesh
 	flag.material_override = _flat_material(FLAG_COLOR)
-	flag.position = Vector3(0.25, 1.85, 0.0)
+	flag.position = Vector3(0.25, depression_depth + 1.85, 0.0)
 	_cup_area.add_child(flag)
 
 
-func _on_body_entered_cup(body: Node3D) -> void:
-	if body.is_in_group("ball"):
-		ball_entered_cup.emit()
+## Returns true when `world_pos` is inside the cup depression floor.
+## Uses the physical depression floor radius (85% of the bowl radius)
+## so detection matches what the player sees.
+func is_in_cup(world_pos: Vector3) -> bool:
+	var r: float = CUP_RADIUS
+	if layout.terrain_data and layout.terrain_data.cup_depression_radius > 0.0:
+		# The flat floor extends to 85% of the depression radius
+		r = layout.terrain_data.cup_depression_radius * 0.85
+	var dx: float = world_pos.x - layout.cup_position.x
+	var dz: float = world_pos.z - layout.cup_position.z
+	return dx * dx + dz * dz <= r * r
 
 
 # -------------------------------------------------------------------------

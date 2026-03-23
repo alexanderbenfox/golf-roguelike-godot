@@ -219,7 +219,6 @@ func _on_hole_started(_hole_number: int, _par: int) -> void:
 			_p.get_hazard_modifier_stack()
 
 	current_hole.build(layout)
-	current_hole.ball_entered_cup.connect(_on_ball_entered_cup)
 	current_hole.ball_hit_dynamic_hazard.connect(_on_ball_hit_dynamic_hazard)
 
 	var tee_position: Vector3 = current_hole.get_tee_world_position()
@@ -257,16 +256,14 @@ func _on_flyover_completed(layout: HoleGenerator.HoleLayout, tee_position: Vecto
 	turn_manager.start_hole(tee_position)
 
 
-func _on_ball_entered_cup() -> void:
-	if ball._ignore_cup:
-		return
-	_spawn_cup_celebration(ball.global_position)
-	var my_id: int = network_manager.get_my_peer_id()
-	scoring_manager.complete_hole()
-	turn_manager.notify_player_holed_out(my_id)
-
-
 func _on_ball_at_rest(peer_id: int) -> void:
+	# Check if the ball came to rest inside the cup depression
+	if not ball._ignore_cup and current_hole and current_hole.is_in_cup(ball.global_position):
+		_spawn_cup_celebration(ball.global_position)
+		var my_id: int = network_manager.get_my_peer_id()
+		scoring_manager.complete_hole()
+		turn_manager.notify_player_holed_out(my_id)
+		return
 	_show_distance_to_hole()
 	turn_manager.notify_ball_at_rest(peer_id)
 
@@ -415,7 +412,7 @@ func _update_wind_indicator(wind: Vector3) -> void:
 
 
 func _on_turn_manager_hole_complete() -> void:
-	pass  # Scoring handled via _on_ball_entered_cup → scoring_manager.complete_hole()
+	pass  # Scoring handled via _on_ball_at_rest → scoring_manager.complete_hole()
 
 
 func _on_hole_completed(strokes: int, par: int, score_name: String) -> void:

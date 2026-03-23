@@ -240,6 +240,10 @@ static func generate(
 		cup_pos.x, ground_height, cup_pos.z,
 	)
 
+	# --- Step 10: Cup depression (analytical bowl for putting physics) ---
+	terrain.cup_depression_radius = 0.5
+	terrain.cup_depression_depth = 0.5
+
 	return terrain
 
 
