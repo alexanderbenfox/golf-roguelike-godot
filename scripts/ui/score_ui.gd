@@ -33,7 +33,7 @@ func update_display():
 		score_label.text = "E" # even par
 	elif relative > 0:
 		score_label.text = "+" + str(relative)
-		score_label.modulate = Color.RED
+		score_label.modulate = Color(0.412, 0.173, 0.173)  # CLAY
 	else:
 		score_label.text = str(relative)
-		score_label.modulate = Color.GREEN
+		score_label.modulate = Color(0.333, 0.510, 0.153)  # GRASS

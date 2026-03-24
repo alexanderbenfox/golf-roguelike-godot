@@ -55,7 +55,7 @@ func _ready() -> void:
 	_bar_panel = Panel.new()
 	_bar_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bg_style := StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.06, 0.06, 0.06, 0.75)
+	bg_style.bg_color = Color(0.184, 0.106, 0.067, 0.88)  # BARK
 	bg_style.corner_radius_top_left = 4
 	bg_style.corner_radius_top_right = 4
 	bg_style.corner_radius_bottom_left = 4
@@ -69,23 +69,23 @@ func _ready() -> void:
 	_zone_drawer.draw.connect(_draw_zones)
 	_bar_panel.add_child(_zone_drawer)
 
-	# Red overshoot overlay — covers the whole bar with pulsing red when overshooting
+	# Overshoot overlay — covers the whole bar with pulsing CLAY when overshooting
 	_overshoot_overlay = ColorRect.new()
 	_overshoot_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_overshoot_overlay.color = Color(1.0, 0.1, 0.1, 0.0)
+	_overshoot_overlay.color = Color(0.412, 0.173, 0.173, 0.0)  # CLAY, alpha=0
 	_bar_panel.add_child(_overshoot_overlay)
 
 	# Indicator line — child of self (not panel) so it can rise above the bar
 	_indicator = ColorRect.new()
 	_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_indicator.color = Color(1.0, 1.0, 1.0, 0.95)
+	_indicator.color = Color(0.941, 0.918, 0.847, 0.95)  # PARCHMENT
 	add_child(_indicator)
 
 	# Power percentage label
 	_power_label = Label.new()
 	_power_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_power_label.add_theme_font_size_override("font_size", 20)
-	_power_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.8))
+	_power_label.add_theme_color_override("font_color", Color(0.941, 0.918, 0.847, 0.8))  # PARCHMENT
 	_power_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_power_label)
 
@@ -93,7 +93,7 @@ func _ready() -> void:
 	_accuracy_label = Label.new()
 	_accuracy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_accuracy_label.add_theme_font_size_override("font_size", 14)
-	_accuracy_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.3, 0.9))
+	_accuracy_label.add_theme_color_override("font_color", Color(0.412, 0.173, 0.173, 0.9))  # CLAY
 	_accuracy_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_accuracy_label.visible = false
 	add_child(_accuracy_label)
@@ -136,7 +136,7 @@ func show_meter() -> void:
 	_overshoot_amount = 0.0
 	_overshoot_overlay.color.a = 0.0
 	_accuracy_label.visible = false
-	_indicator.color = Color(1.0, 1.0, 1.0, 0.95)
+	_indicator.color = Color(0.941, 0.918, 0.847, 0.95)  # PARCHMENT
 	_bar_panel.position = _base_bar_pos
 
 
@@ -167,11 +167,11 @@ func set_overshooting(overshooting: bool, amount: float = 0.0) -> void:
 	_is_overshooting = overshooting
 	if overshooting:
 		_overshoot_time = 0.0
-		_indicator.color = Color(1.0, 0.3, 0.2, 1.0)
+		_indicator.color = Color(0.412, 0.173, 0.173, 1.0)  # CLAY
 		_accuracy_label.text = "OVERSHOOT!"
 		_accuracy_label.visible = true
 	else:
-		_indicator.color = Color(1.0, 1.0, 1.0, 0.95)
+		_indicator.color = Color(0.941, 0.918, 0.847, 0.95)  # PARCHMENT
 		_overshoot_overlay.color.a = 0.0
 		_accuracy_label.visible = false
 		_bar_panel.position = _base_bar_pos
@@ -190,7 +190,7 @@ func _process(delta: float) -> void:
 	var pulse_speed: float = 6.0 + intensity * 8.0
 	var base_alpha: float = 0.1 + intensity * 0.25
 	var pulse_alpha: float = base_alpha + 0.1 * sin(_overshoot_time * pulse_speed)
-	_overshoot_overlay.color = Color(1.0, 0.1, 0.1, pulse_alpha)
+	_overshoot_overlay.color = Color(0.412, 0.173, 0.173, pulse_alpha)  # CLAY
 
 	# --- Indicator: rise above bar top + shake ---
 	var rise: float = clampf(_overshoot_amount * 2.0, 0.0, 1.0) * OVERSHOOT_MAX_RISE
@@ -203,7 +203,7 @@ func _process(delta: float) -> void:
 
 	# Pulse indicator color
 	var ind_alpha: float = 0.7 + 0.3 * sin(_overshoot_time * pulse_speed)
-	_indicator.color = Color(1.0, 0.3, 0.2, ind_alpha)
+	_indicator.color = Color(0.412, 0.173, 0.173, ind_alpha)  # CLAY
 
 	# --- Bar wobble: horizontal oscillation ---
 	var wobble_x: float = sin(_overshoot_time * 12.0) * WOBBLE_INTENSITY * intensity
@@ -222,8 +222,8 @@ func _draw_zones() -> void:
 	var h: float = _zone_drawer.size.y
 
 	if _bands.size() < 2:
-		# No data — draw solid dark
-		_zone_drawer.draw_rect(Rect2(0, 0, w, h), Color(0.1, 0.1, 0.1, 0.5))
+		# No data — draw solid forest
+		_zone_drawer.draw_rect(Rect2(0, 0, w, h), Color(0.157, 0.212, 0.094, 0.5))  # FOREST
 		return
 
 	# Draw bands from bottom (0%) to top (100%)
@@ -255,5 +255,5 @@ func _draw_zones() -> void:
 				_zone_drawer.draw_string(
 					font, Vector2(tx, ty), label_text,
 					HORIZONTAL_ALIGNMENT_LEFT, -1, font_size,
-					Color(1.0, 1.0, 1.0, 0.6),
+					Color(0.941, 0.918, 0.847, 0.6),  # PARCHMENT
 				)

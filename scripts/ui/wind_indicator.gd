@@ -34,7 +34,7 @@ func _ready() -> void:
 	_speed_label = Label.new()
 	_speed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_speed_label.add_theme_font_size_override("font_size", 20)
-	_speed_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.9))
+	_speed_label.add_theme_color_override("font_color", Color(0.941, 0.918, 0.847, 0.9))  # PARCHMENT
 	_speed_label.position = Vector2(0, 64)
 	_speed_label.size = Vector2(110, 24)
 	_speed_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -44,7 +44,7 @@ func _ready() -> void:
 	_dir_label = Label.new()
 	_dir_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_dir_label.add_theme_font_size_override("font_size", 15)
-	_dir_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8, 0.7))
+	_dir_label.add_theme_color_override("font_color", Color(0.553, 0.522, 0.337, 0.7))  # SAND
 	_dir_label.position = Vector2(0, 88)
 	_dir_label.size = Vector2(110, 20)
 	_dir_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -79,12 +79,12 @@ func _draw_arrow() -> void:
 		center + Vector2(-size_f * 0.5, size_f * 0.6),  # bottom-left
 		center + Vector2(size_f * 0.5, size_f * 0.6),   # bottom-right
 	])
-	var color := Color(0.7, 0.9, 1.0, 0.85)
+	var color := Color(0.659, 0.733, 0.800, 0.85)  # SKY
 	_arrow.draw_colored_polygon(points, color)
 	# Outline for visibility
 	_arrow.draw_polyline(
 		PackedVector2Array([points[0], points[1], points[2], points[0]]),
-		Color(1.0, 1.0, 1.0, 0.5), 1.5,
+		Color(0.941, 0.918, 0.847, 0.5), 1.5,  # PARCHMENT
 	)
 
 

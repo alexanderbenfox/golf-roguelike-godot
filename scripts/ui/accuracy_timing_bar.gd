@@ -40,7 +40,7 @@ func _ready() -> void:
 	_title_label = Label.new()
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.add_theme_font_size_override("font_size", 18)
-	_title_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.9))
+	_title_label.add_theme_color_override("font_color", Color(0.941, 0.918, 0.847, 0.9))  # PARCHMENT
 	_title_label.text = "ACCURACY — CLICK TO LOCK"
 	_title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_title_label)
@@ -99,10 +99,10 @@ func update_indicator(percent: float) -> void:
 func show_result(result: int) -> void:
 	var texts: Array[String] = ["Perfect!", "Good", "OK", "Miss"]
 	var colors: Array[Color] = [
-		Color(0.3, 1.0, 0.3),
-		Color(0.8, 0.9, 0.3),
-		Color(0.9, 0.7, 0.2),
-		Color(1.0, 0.3, 0.2),
+		Color(0.333, 0.510, 0.153),  # GRASS   — Perfect
+		Color(0.522, 0.584, 0.239),  # FERN    — Good
+		Color(0.553, 0.522, 0.337),  # SAND    — OK
+		Color(0.412, 0.173, 0.173),  # CLAY    — Miss
 	]
 	if result < 0 or result >= texts.size():
 		return
@@ -131,19 +131,19 @@ func _on_draw() -> void:
 	var inner_w: float = r.size.x - pad * 2.0
 	var inner_h: float = r.size.y - pad * 2.0
 
-	# --- Dark background ---
-	_draw_node.draw_rect(r, Color(0.05, 0.05, 0.1, 0.92))
+	# --- Dark background (POND) ---
+	_draw_node.draw_rect(r, Color(0.043, 0.224, 0.282, 0.92))  # POND
 
 	# --- Miss zones (red on edges) ---
 	if _sweet_spot.x > 0.01:
 		_draw_node.draw_rect(
 			Rect2(inner_x, inner_y, _sweet_spot.x * inner_w, inner_h),
-			Color(0.55, 0.08, 0.08, 0.55))
+			Color(0.412, 0.173, 0.173, 0.55))  # CLAY
 	if _sweet_spot.y < 0.99:
 		var rx: float = inner_x + _sweet_spot.y * inner_w
 		_draw_node.draw_rect(
 			Rect2(rx, inner_y, (1.0 - _sweet_spot.y) * inner_w, inner_h),
-			Color(0.55, 0.08, 0.08, 0.55))
+			Color(0.412, 0.173, 0.173, 0.55))  # CLAY
 
 	# --- OK zones (orange, between miss and sweet spot edges) ---
 	# Narrow orange strips just outside the sweet spot
@@ -154,29 +154,29 @@ func _on_draw() -> void:
 		_draw_node.draw_rect(
 			Rect2(inner_x + ok_left_lo * inner_w, inner_y,
 				(ok_left_hi - ok_left_lo) * inner_w, inner_h),
-			Color(0.7, 0.45, 0.05, 0.4))
+			Color(0.553, 0.522, 0.337, 0.40))  # SAND
 	var ok_right_lo: float = _sweet_spot.y
 	var ok_right_hi: float = minf(_sweet_spot.y + ok_band, 1.0)
 	if ok_right_hi > ok_right_lo + 0.005:
 		_draw_node.draw_rect(
 			Rect2(inner_x + ok_right_lo * inner_w, inner_y,
 				(ok_right_hi - ok_right_lo) * inner_w, inner_h),
-			Color(0.7, 0.45, 0.05, 0.4))
+			Color(0.553, 0.522, 0.337, 0.40))  # SAND
 
 	# --- Sweet spot (green) ---
 	var ss_x: float = inner_x + _sweet_spot.x * inner_w
 	var ss_w: float = (_sweet_spot.y - _sweet_spot.x) * inner_w
 	_draw_node.draw_rect(Rect2(ss_x, inner_y, ss_w, inner_h),
-		Color(0.12, 0.5, 0.12, 0.65))
+		Color(0.376, 0.424, 0.220, 0.65))  # OLIVE
 
 	# --- Perfect zone (bright green center) ---
 	var pf_x: float = inner_x + _perfect.x * inner_w
 	var pf_w: float = (_perfect.y - _perfect.x) * inner_w
 	_draw_node.draw_rect(Rect2(pf_x, inner_y, pf_w, inner_h),
-		Color(0.2, 0.85, 0.2, 0.85))
+		Color(0.333, 0.510, 0.153, 0.85))  # GRASS
 
 	# --- Border ---
-	_draw_node.draw_rect(r, Color(0.8, 0.8, 0.8, 0.75), false, BORDER_WIDTH)
+	_draw_node.draw_rect(r, Color(0.553, 0.522, 0.337, 0.75), false, BORDER_WIDTH)  # SAND
 
 	# --- Indicator ---
 	var ind_x: float = inner_x + _indicator_percent * inner_w
@@ -209,7 +209,7 @@ func _on_draw() -> void:
 		Vector2(ind_x, arrow_bot),
 		Vector2(ind_x + ARROW_SIZE * 0.6, arrow_top),
 		Vector2(ind_x - ARROW_SIZE * 0.6, arrow_top),
-	]), Color(1.0, 1.0, 1.0, 0.7), 1.5)
+	]), Color(0.941, 0.918, 0.847, 0.7), 1.5)  # PARCHMENT
 
 	# --- Arrow below the bar (pointing up ▲) ---
 	var btri_top: float = r.position.y + r.size.y + 1.0
@@ -224,16 +224,16 @@ func _on_draw() -> void:
 		Vector2(ind_x, btri_top),
 		Vector2(ind_x + ARROW_SIZE * 0.6, btri_bot),
 		Vector2(ind_x - ARROW_SIZE * 0.6, btri_bot),
-	]), Color(1.0, 1.0, 1.0, 0.7), 1.5)
+	]), Color(0.941, 0.918, 0.847, 0.7), 1.5)  # PARCHMENT
 
 
 func _get_zone_color(percent: float) -> Color:
 	if percent >= _perfect.x and percent <= _perfect.y:
-		return Color(0.2, 1.0, 0.2)      # bright green — Perfect
+		return Color(0.333, 0.510, 0.153)   # GRASS — Perfect
 	elif percent >= _sweet_spot.x and percent <= _sweet_spot.y:
-		return Color(0.5, 0.9, 0.2)      # yellow-green — Good
+		return Color(0.522, 0.584, 0.239)   # FERN — Good
 	else:
-		# Fade from yellow to red based on distance from sweet spot
+		# Fade from SAND to CLAY based on distance from sweet spot
 		var dist: float = 0.0
 		if percent < _sweet_spot.x:
 			dist = (_sweet_spot.x - percent) / maxf(_sweet_spot.x, 0.01)
@@ -241,6 +241,6 @@ func _get_zone_color(percent: float) -> Color:
 			dist = (percent - _sweet_spot.y) / maxf(1.0 - _sweet_spot.y, 0.01)
 		dist = clampf(dist, 0.0, 1.0)
 		return Color(
-			lerpf(0.9, 1.0, dist),
-			lerpf(0.7, 0.2, dist),
-			lerpf(0.1, 0.1, dist))
+			lerpf(0.553, 0.412, dist),
+			lerpf(0.522, 0.173, dist),
+			lerpf(0.337, 0.173, dist))

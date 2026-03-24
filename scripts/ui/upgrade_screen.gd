@@ -14,13 +14,13 @@ extends CanvasLayer
 signal upgrade_selected(upgrade: UpgradeDefinition)
 
 const CARD_SIZE     := Vector2(260, 360)
-const CARD_BG       := Color(0.10, 0.10, 0.14)
-const OVERLAY_COLOR := Color(0.0, 0.0, 0.0, 0.80)
+const CARD_BG       := Color(0.157, 0.212, 0.094, 0.92)  # FOREST
+const OVERLAY_COLOR := Color(0.184, 0.106, 0.067, 0.80)  # BARK
 
 const RARITY_COLORS: Dictionary = {
-	0: Color(0.75, 0.75, 0.75),   # COMMON    — silver
-	1: Color(0.20, 0.85, 0.35),   # UNCOMMON  — green
-	2: Color(0.40, 0.60, 1.00),   # RARE      — blue
+	0: Color(0.553, 0.522, 0.337),  # COMMON   — sand
+	1: Color(0.333, 0.510, 0.153),  # UNCOMMON — grass
+	2: Color(0.659, 0.733, 0.800),  # RARE     — sky
 }
 const RARITY_NAMES: Array[String] = ["Common", "Uncommon", "Rare"]
 
@@ -63,6 +63,7 @@ func _build_ui(choices: Array) -> void:
 	title.text = "Choose an Upgrade"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 34)
+	title.add_theme_color_override("font_color", Color(0.941, 0.918, 0.847))  # PARCHMENT
 	vbox.add_child(title)
 
 	# Subtitle showing current meta level
@@ -71,7 +72,7 @@ func _build_ui(choices: Array) -> void:
 	meta_label.text = "Meta Level %d" % lvl
 	meta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	meta_label.add_theme_font_size_override("font_size", 14)
-	meta_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	meta_label.add_theme_color_override("font_color", Color(0.553, 0.522, 0.337))  # SAND
 	vbox.add_child(meta_label)
 
 	# Cards row
@@ -94,6 +95,7 @@ func _build_ui(choices: Array) -> void:
 	skip_btn.text = "Skip"
 	skip_btn.pressed.connect(_on_skip_pressed)
 	skip_btn.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UITheme.apply_button_theme(skip_btn)
 	vbox.add_child(skip_btn)
 
 
@@ -119,8 +121,8 @@ func _make_card(upgrade: UpgradeDefinition) -> Button:
 
 	# Hover style — slightly lighter background, brighter border
 	var hover_style := normal_style.duplicate() as StyleBoxFlat
-	hover_style.bg_color     = Color(0.17, 0.17, 0.22)
-	hover_style.border_color = rarity_color.lightened(0.25)
+	hover_style.bg_color     = Color(0.220, 0.290, 0.137)  # FOREST lightened
+	hover_style.border_color = rarity_color.lightened(0.20)
 
 	btn.add_theme_stylebox_override("normal",  normal_style)
 	btn.add_theme_stylebox_override("hover",   hover_style)
@@ -171,7 +173,7 @@ func _make_card(upgrade: UpgradeDefinition) -> Button:
 		effects_label.text = summary
 		effects_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		effects_label.add_theme_font_size_override("font_size", 14)
-		effects_label.add_theme_color_override("font_color", Color(0.65, 1.0, 0.65))
+		effects_label.add_theme_color_override("font_color", Color(0.333, 0.510, 0.153))  # GRASS
 		vbox.add_child(effects_label)
 
 	return btn

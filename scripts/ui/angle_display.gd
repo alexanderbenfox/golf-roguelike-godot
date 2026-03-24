@@ -17,11 +17,13 @@ func _ready() -> void:
 	_bg_panel = Panel.new()
 	_bg_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bg_style := StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.06, 0.06, 0.06, 0.6)
+	bg_style.bg_color = Color(0.184, 0.106, 0.067, 0.75)  # BARK
 	bg_style.corner_radius_top_left = 4
 	bg_style.corner_radius_top_right = 4
 	bg_style.corner_radius_bottom_left = 4
 	bg_style.corner_radius_bottom_right = 4
+	bg_style.border_color = Color(0.376, 0.424, 0.220)     # OLIVE
+	bg_style.set_border_width_all(1)
 	_bg_panel.add_theme_stylebox_override("panel", bg_style)
 	add_child(_bg_panel)
 
@@ -29,7 +31,7 @@ func _ready() -> void:
 	_angle_label = Label.new()
 	_angle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_angle_label.add_theme_font_size_override("font_size", 24)
-	_angle_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.9))
+	_angle_label.add_theme_color_override("font_color", Color(0.941, 0.918, 0.847, 0.9))  # PARCHMENT
 	_angle_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bg_panel.add_child(_angle_label)
 
@@ -37,7 +39,7 @@ func _ready() -> void:
 	_hint_label = Label.new()
 	_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint_label.add_theme_font_size_override("font_size", 13)
-	_hint_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.6))
+	_hint_label.add_theme_color_override("font_color", Color(0.659, 0.733, 0.800, 0.65))  # SKY
 	_hint_label.text = "Q / E"
 	_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bg_panel.add_child(_hint_label)

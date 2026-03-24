@@ -23,18 +23,18 @@ grow_horizontal = 0
 
 [node name="StrokeLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_color = Color(0.941, 0.918, 0.847, 1)
 theme_override_font_sizes/font_size = 24
 text = "Test"
 
 [node name="ParLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_color = Color(0.941, 0.918, 0.847, 1)
 theme_override_font_sizes/font_size = 24
 text = "Test"
 
 [node name="ScoreLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_color = Color(0.941, 0.918, 0.847, 1)
 theme_override_font_sizes/font_size = 24
 text = "test"

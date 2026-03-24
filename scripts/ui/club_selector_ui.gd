@@ -19,11 +19,13 @@ func _ready() -> void:
 	_bg_panel = Panel.new()
 	_bg_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bg_style := StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.06, 0.06, 0.06, 0.6)
+	bg_style.bg_color = Color(0.184, 0.106, 0.067, 0.75)  # BARK
 	bg_style.corner_radius_top_left = 4
 	bg_style.corner_radius_top_right = 4
 	bg_style.corner_radius_bottom_left = 4
 	bg_style.corner_radius_bottom_right = 4
+	bg_style.border_color = Color(0.376, 0.424, 0.220)     # OLIVE
+	bg_style.set_border_width_all(1)
 	_bg_panel.add_theme_stylebox_override("panel", bg_style)
 	add_child(_bg_panel)
 
@@ -32,7 +34,7 @@ func _ready() -> void:
 	_left_arrow.text = "<"
 	_left_arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_left_arrow.add_theme_font_size_override("font_size", 20)
-	_left_arrow.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.6))
+	_left_arrow.add_theme_color_override("font_color", Color(0.553, 0.522, 0.337, 0.7))  # SAND
 	_left_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bg_panel.add_child(_left_arrow)
 
@@ -40,7 +42,7 @@ func _ready() -> void:
 	_club_name_label = Label.new()
 	_club_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_club_name_label.add_theme_font_size_override("font_size", 22)
-	_club_name_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.95))
+	_club_name_label.add_theme_color_override("font_color", Color(0.941, 0.918, 0.847, 0.95))  # PARCHMENT
 	_club_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bg_panel.add_child(_club_name_label)
 
@@ -57,7 +59,7 @@ func _ready() -> void:
 	_info_label = Label.new()
 	_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_info_label.add_theme_font_size_override("font_size", 14)
-	_info_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8, 0.7))
+	_info_label.add_theme_color_override("font_color", Color(0.553, 0.522, 0.337, 0.7))  # SAND
 	_info_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bg_panel.add_child(_info_label)
 

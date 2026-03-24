@@ -36,7 +36,7 @@ func _ready() -> void:
 	_dist_label = Label.new()
 	_dist_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_dist_label.add_theme_font_size_override("font_size", 15)
-	_dist_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.85))
+	_dist_label.add_theme_color_override("font_color", Color(0.941, 0.918, 0.847, 0.85))  # PARCHMENT
 	_dist_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_dist_label)
 
@@ -138,21 +138,21 @@ func _draw_icon() -> void:
 	for i: int in range(segments):
 		var angle: float = float(i) / float(segments) * TAU
 		bg_points.append(Vector2(cx + cos(angle) * bg_r, cy + sin(angle) * bg_r))
-	_icon.draw_colored_polygon(bg_points, Color(1.0, 1.0, 1.0, 0.75))
+	_icon.draw_colored_polygon(bg_points, Color(0.941, 0.918, 0.847, 0.75))  # PARCHMENT
 
 	# Dark inner disc
 	var dark_points: PackedVector2Array = PackedVector2Array()
 	for i: int in range(segments):
 		var angle: float = float(i) / float(segments) * TAU
 		dark_points.append(Vector2(cx + cos(angle) * r, cy + sin(angle) * r))
-	_icon.draw_colored_polygon(dark_points, Color(0.1, 0.1, 0.1, 0.85))
+	_icon.draw_colored_polygon(dark_points, Color(0.184, 0.106, 0.067, 0.90))  # BARK
 
 	# Gold outer ring
 	var ring_points: PackedVector2Array = PackedVector2Array()
 	for i: int in range(segments + 1):
 		var angle: float = float(i) / float(segments) * TAU
 		ring_points.append(Vector2(cx + cos(angle) * r, cy + sin(angle) * r))
-	_icon.draw_polyline(ring_points, Color(1.0, 0.85, 0.2, 1.0), 3.0)
+	_icon.draw_polyline(ring_points, Color(0.553, 0.522, 0.337, 1.0), 3.0)  # SAND
 
 	# Inner filled gold circle
 	var inner_points: PackedVector2Array = PackedVector2Array()
@@ -163,13 +163,13 @@ func _draw_icon() -> void:
 			cx + cos(angle) * inner_r,
 			cy + sin(angle) * inner_r,
 		))
-	_icon.draw_colored_polygon(inner_points, Color(1.0, 0.85, 0.2, 0.8))
+	_icon.draw_colored_polygon(inner_points, Color(0.553, 0.522, 0.337, 0.85))  # SAND
 
 	# Flag pole line
 	_icon.draw_line(
 		Vector2(cx, cy - r * 0.3),
 		Vector2(cx, cy - r * 1.1),
-		Color(1.0, 1.0, 1.0, 0.9), 1.5,
+		Color(0.941, 0.918, 0.847, 0.9), 1.5,  # PARCHMENT
 	)
 	# Small flag triangle
 	_icon.draw_colored_polygon(
@@ -178,5 +178,5 @@ func _draw_icon() -> void:
 			Vector2(cx + r * 0.5, cy - r * 0.85),
 			Vector2(cx, cy - r * 0.65),
 		]),
-		Color(1.0, 0.3, 0.2, 0.85),
+		Color(0.412, 0.173, 0.173, 0.90),  # CLAY
 	)

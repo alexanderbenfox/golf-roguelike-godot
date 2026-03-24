@@ -14,7 +14,7 @@ var _total_label: Label
 func _ready() -> void:
 	# Panel styling
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.0, 0.0, 0.0, 0.7)
+	style.bg_color = Color(0.184, 0.106, 0.067, 0.88)  # BARK
 	style.corner_radius_top_left = 8
 	style.corner_radius_top_right = 8
 	style.corner_radius_bottom_left = 8
@@ -31,7 +31,7 @@ func _ready() -> void:
 
 	# Header
 	var header := _make_row("Hole", "Par", "Strokes", "Score")
-	header.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	header.add_theme_color_override("font_color", Color(0.553, 0.522, 0.337))  # SAND
 	_vbox.add_child(header)
 
 	# Separator
@@ -43,7 +43,7 @@ func _ready() -> void:
 	_total_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_total_label.add_theme_font_size_override("font_size", 16)
 	_total_label.add_theme_color_override(
-		"font_color", Color(1.0, 1.0, 0.7)
+		"font_color", Color(0.941, 0.918, 0.847)  # PARCHMENT
 	)
 
 	# Anchor to top-right
@@ -69,11 +69,11 @@ func add_hole_result(
 
 	# Color strokes based on score
 	var diff: int = strokes - par
-	var color := Color.WHITE
+	var color := Color(0.941, 0.918, 0.847)  # PARCHMENT — even par
 	if diff < 0:
-		color = Color(0.3, 1.0, 0.4)
+		color = Color(0.333, 0.510, 0.153)   # GRASS — under par
 	elif diff > 0:
-		color = Color(1.0, 0.4, 0.3)
+		color = Color(0.412, 0.173, 0.173)   # CLAY — over par
 
 	var row := _make_row(
 		str(hole_number),
